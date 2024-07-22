@@ -1,4 +1,5 @@
 pub mod lexer;
+pub mod parser;
 pub mod span;
 pub mod syntax;
 
@@ -51,8 +52,7 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
-    let stdin = tokio::io::stdin();
-    let stdout = tokio::io::stdout();
+    let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     let (service, socket) = LspService::new(|client| Backend { client });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
