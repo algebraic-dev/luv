@@ -3,8 +3,8 @@
 use std::{iter::Peekable, str::Chars};
 
 use crate::{
-    span::{Span, Spanned},
     compiler::syntax::token::{Comment, Token, TokenInfo, TokenKind},
+    span::{Span, Spanned},
 };
 
 /// Checks if a character can be part of an atom.
@@ -83,7 +83,10 @@ impl<'input> Lexer<'input> {
             self.advance_while(|c| *c != '\n');
             let comment = self.input[self.start..self.index].to_owned();
             let comment = self.spanned(comment);
-            Either::Left(Comment { whitespace, comment })
+            Either::Left(Comment {
+                whitespace,
+                comment,
+            })
         } else {
             Either::Right(whitespace)
         }

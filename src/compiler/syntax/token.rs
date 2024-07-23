@@ -1,7 +1,7 @@
 //! A module for handling tokens, their kinds, and related information, including comments and whitespace.
-//! 
+//!
 //! The module provides the following structures:
-//! 
+//!
 //! - [Token] : Represents a token with a kind and associated information.
 //! - [TokenKind] : Enumerates the possible kinds of tokens.
 //! - [Comment] : Represents a comment with preceding whitespace.
@@ -49,7 +49,10 @@ pub struct Comment {
 impl Comment {
     /// Creates a new `Comment` with the given whitespace and comment.
     pub fn new(whitespace: Spanned<String>, comment: Spanned<String>) -> Self {
-        Self { whitespace, comment }
+        Self {
+            whitespace,
+            comment,
+        }
     }
 }
 
@@ -63,7 +66,11 @@ pub struct TokenInfo {
 
 impl TokenInfo {
     /// Creates a new `TokenInfo` with the given comments, whitespace, and lexeme.
-    pub fn new(comments: Vec<Comment>, whitespace: Spanned<String>, lexeme: Spanned<String>) -> Self {
+    pub fn new(
+        comments: Vec<Comment>,
+        whitespace: Spanned<String>,
+        lexeme: Spanned<String>,
+    ) -> Self {
         Self {
             comments,
             whitespace,

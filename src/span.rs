@@ -1,7 +1,7 @@
 //! A module for handling spans and spanned data. This is useful for tasks like tracking positions in source code.
 //!
 //! The module provides the following structures:
-//! 
+//!
 //! - [Span] : Represents a span with a start and end position.
 //! - [Spanned] : Wraps data with a span.
 //! - [Position] : Represents a specific position in a source.
@@ -24,7 +24,10 @@ impl Span {
 
     /// Combines two spans into one, taking the minimum start and maximum end.
     pub fn mix(self, other: Self) -> Self {
-        Self(std::cmp::min(self.0, other.0), std::cmp::max(self.1, other.1))
+        Self(
+            std::cmp::min(self.0, other.0),
+            std::cmp::max(self.1, other.1),
+        )
     }
 }
 

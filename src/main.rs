@@ -19,7 +19,7 @@ fn offset_to_position(doc: &str, offset: usize) -> Position {
         if remaining_offset <= line.len() {
             return Position::new(line_num as u32, remaining_offset as u32);
         }
-        remaining_offset -= line.len() + 1; 
+        remaining_offset -= line.len() + 1;
     }
     let last_line_num = doc.lines().count().saturating_sub(1);
     let last_line_len = doc.lines().last().map_or(0, |line| line.len());
@@ -43,7 +43,9 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL)),
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::INCREMENTAL,
+                )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions::default()),
                 ..Default::default()
@@ -84,27 +86,37 @@ impl LanguageServer for Backend {
             let start = offset_to_position(&doc, span.0);
             let end = offset_to_position(&doc, span.1);
 
-            self.client.publish_diagnostics(uri.clone(), vec![Diagnostic {
-                range: Range {
-                    start: Position::new(start.line as u32, start.character as u32),
-                    end: Position::new(end.line as u32, end.character as u32),
-                },
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: None,
-                code_description: None,
-                source: Some("firefly".to_string()),
-                message: str,
-                related_information: None,
-                tags: None,
-                data: None,
-            }], None).await;
+            self.client
+                .publish_diagnostics(
+                    uri.clone(),
+                    vec![Diagnostic {
+                        range: Range {
+                            start: Position::new(start.line as u32, start.character as u32),
+                            end: Position::new(end.line as u32, end.character as u32),
+                        },
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: None,
+                        code_description: None,
+                        source: Some("firefly".to_string()),
+                        message: str,
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    }],
+                    None,
+                )
+                .await;
         } else {
-            self.client.publish_diagnostics(uri.clone(), vec![], None).await;
+            self.client
+                .publish_diagnostics(uri.clone(), vec![], None)
+                .await;
         }
 
         self.documents.write().await.insert(uri.clone(), doc);
 
-        self.client.log_message(MessageType::INFO, format!("Document opened: {}", uri)).await;
+        self.client
+            .log_message(MessageType::INFO, format!("Document opened: {}", uri))
+            .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -127,25 +139,33 @@ impl LanguageServer for Backend {
                 let start = offset_to_position(doc, span.0);
                 let end = offset_to_position(doc, span.1);
 
-                self.client.publish_diagnostics(uri, vec![Diagnostic {
-                    range: Range {
-                        start: Position::new(start.line as u32, start.character as u32),
-                        end: Position::new(end.line as u32, end.character as u32),
-                    },
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: None,
-                    code_description: None,
-                    source: Some("firefly".to_string()),
-                    message: str,
-                    related_information: None,
-                    tags: None,
-                    data: None,
-                }], None).await;
+                self.client
+                    .publish_diagnostics(
+                        uri,
+                        vec![Diagnostic {
+                            range: Range {
+                                start: Position::new(start.line as u32, start.character as u32),
+                                end: Position::new(end.line as u32, end.character as u32),
+                            },
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: None,
+                            code_description: None,
+                            source: Some("firefly".to_string()),
+                            message: str,
+                            related_information: None,
+                            tags: None,
+                            data: None,
+                        }],
+                        None,
+                    )
+                    .await;
             } else {
                 self.client.publish_diagnostics(uri, vec![], None).await;
             }
 
-            self.client.log_message(MessageType::INFO, format!("Document changed: {}", doc)).await;
+            self.client
+                .log_message(MessageType::INFO, format!("Document changed: {}", doc))
+                .await;
         }
     }
 }
@@ -153,6 +173,9 @@ impl LanguageServer for Backend {
 #[tokio::main]
 async fn main() {
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
-    let (service, socket) = LspService::new(|client| Backend { client, documents: RwLock::new(HashMap::new()) });
+    let (service, socket) = LspService::new(|client| Backend {
+        client,
+        documents: RwLock::new(HashMap::new()),
+    });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

@@ -1,7 +1,7 @@
 //! A module for handling various types of expression nodes and their associated tokens.
 
-use crate::span::Spanned;
 use super::token::Token;
+use crate::span::Spanned;
 
 /// Represents a string node with an associated token.
 #[derive(Debug)]
@@ -53,7 +53,11 @@ pub struct ListNode {
 impl ListNode {
     /// Creates a new `ListNode` with the given tokens and items.
     pub fn new(lparens: Token, items: Vec<Expr>, rparens: Token) -> Self {
-        Self { lparens, items, rparens }
+        Self {
+            lparens,
+            items,
+            rparens,
+        }
     }
 }
 
@@ -68,7 +72,11 @@ pub struct VecNode {
 impl VecNode {
     /// Creates a new `VecNode` with the given tokens and items.
     pub fn new(lbracket: Token, items: Vec<Expr>, rbracket: Token) -> Self {
-        Self { lbracket, items, rbracket }
+        Self {
+            lbracket,
+            items,
+            rbracket,
+        }
     }
 }
 

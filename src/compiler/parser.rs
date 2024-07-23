@@ -2,11 +2,11 @@
 
 use crate::{
     compiler::lexer::Lexer,
-    span::{Span, Spanned},
     compiler::syntax::{
         concrete,
         token::{Token, TokenKind},
     },
+    span::{Span, Spanned},
 };
 
 /// A parser for converting tokens into an CST.
@@ -62,7 +62,10 @@ impl<'input> Parser<'input> {
         if self.curr.kind == kind {
             Ok(self.eat())
         } else {
-            Err((format!("Expected {:?}, found {:?}", kind, self.curr.kind), self.curr.info.lexeme.span.clone()))
+            Err((
+                format!("Expected {:?}, found {:?}", kind, self.curr.kind),
+                self.curr.info.lexeme.span.clone(),
+            ))
         }
     }
 
@@ -92,12 +95,27 @@ impl<'input> Parser<'input> {
             TokenKind::Number => self.spanned(|s| s.number().map(concrete::ExprNode::Number)),
             TokenKind::String => self.spanned(|s| s.string().map(concrete::ExprNode::String)),
             TokenKind::LParens => self.spanned(|s| s.list().map(concrete::ExprNode::List)),
-            TokenKind::RParens => Err(("Unexpected right parenthesis".into(), self.next.info.lexeme.span.clone())),
+            TokenKind::RParens => Err((
+                "Unexpected right parenthesis".into(),
+                self.next.info.lexeme.span.clone(),
+            )),
             TokenKind::LBracket => self.spanned(|s| s.vec().map(concrete::ExprNode::Vec)),
-            TokenKind::RBracket => Err(("Unexpected right bracket".into(), self.next.info.lexeme.span.clone())),
-            TokenKind::SimpleQuote => Err(("Unexpected simple quote".into(), self.next.info.lexeme.span.clone())),
-            TokenKind::Error => Err(("Unexpected error token".into(), self.next.info.lexeme.span.clone())),
-            TokenKind::Eof => Err(("Unexpected end of file".into(), self.next.info.lexeme.span.clone())),
+            TokenKind::RBracket => Err((
+                "Unexpected right bracket".into(),
+                self.next.info.lexeme.span.clone(),
+            )),
+            TokenKind::SimpleQuote => Err((
+                "Unexpected simple quote".into(),
+                self.next.info.lexeme.span.clone(),
+            )),
+            TokenKind::Error => Err((
+                "Unexpected error token".into(),
+                self.next.info.lexeme.span.clone(),
+            )),
+            TokenKind::Eof => Err((
+                "Unexpected end of file".into(),
+                self.next.info.lexeme.span.clone(),
+            )),
         }
     }
 
@@ -123,15 +141,21 @@ impl<'input> Parser<'input> {
     fn list(&mut self) -> Result<concrete::ListNode> {
         let lparens = self.expect(TokenKind::LParens)?;
         let mut items = vec![];
-        
-        while !self.is(TokenKind::RBracket) && !self.is(TokenKind::RParens) && !self.is(TokenKind::Eof) {
+
+        while !self.is(TokenKind::RBracket)
+            && !self.is(TokenKind::RParens)
+            && !self.is(TokenKind::Eof)
+        {
             items.push(self.expr()?);
         }
 
         let Ok(rparens) = self.expect(TokenKind::RParens) else {
-            return Err(("Unclosed parenthesis".to_string(), lparens.info.lexeme.span.clone()))
+            return Err((
+                "Unclosed parenthesis".to_string(),
+                lparens.info.lexeme.span.clone(),
+            ));
         };
-        
+
         Ok(concrete::ListNode {
             lparens,
             items,
@@ -144,14 +168,20 @@ impl<'input> Parser<'input> {
         let lbracket = self.expect(TokenKind::LBracket)?;
         let mut items = vec![];
 
-        while !self.is(TokenKind::RBracket) && !self.is(TokenKind::RParens) && !self.is(TokenKind::Eof) {
+        while !self.is(TokenKind::RBracket)
+            && !self.is(TokenKind::RParens)
+            && !self.is(TokenKind::Eof)
+        {
             items.push(self.expr()?);
         }
-        
+
         let Ok(rbracket) = self.expect(TokenKind::RBracket) else {
-            return Err(("Unclosed bracket".to_string(), lbracket.info.lexeme.span.clone()))
+            return Err((
+                "Unclosed bracket".to_string(),
+                lbracket.info.lexeme.span.clone(),
+            ));
         };
-        
+
         Ok(concrete::VecNode {
             lbracket,
             items,
