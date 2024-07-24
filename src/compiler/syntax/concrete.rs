@@ -119,3 +119,11 @@ impl ExprNode {
 
 /// Type alias for a spanned expression node.
 pub type Expr = Spanned<ExprNode>;
+
+/// Represents the program file.
+/// Contains a Vec of ListNodes and the Eof token.
+#[derive(Debug)]
+pub struct Program {
+    pub top_levels: Vec<ListNode>,
+    pub eof_token: Token,
+}

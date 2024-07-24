@@ -198,6 +198,13 @@ impl<'input> Parser<'input> {
 
         Ok(code)
     }
+
+    pub fn program(&mut self) -> Result<concrete::Program> {
+        Ok(concrete::Program {
+            top_levels: self.parse()?,
+            eof_token: self.expect(TokenKind::Eof)?,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -208,6 +215,19 @@ mod tests {
     fn parse_list() {
         let mut parser = Parser::from("(test [369])");
         let expr = parser.expr();
+        println!("{:?}", expr);
+    }
+
+    #[test]
+    fn parse_program() {
+        let input = r#"
+(set! name "firefly")
+
+; cato
+
+"#;
+        let mut parser = Parser::from(input);
+        let expr = parser.program();
         println!("{:?}", expr);
     }
 }
