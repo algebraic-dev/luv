@@ -2,10 +2,9 @@
 
 use std::{iter::Peekable, str::Chars};
 
-use crate::{
-    compiler::syntax::token::{Comment, Token, TokenInfo, TokenKind},
-    span::{Span, Spanned},
-};
+use crate::span::{Position, Span, Spanned};
+
+use super::syntax::{Syntax, SyntaxKind};
 
 /// Checks if a character can be part of an atom.
 fn is_atom(c: &char) -> bool {
@@ -16,16 +15,9 @@ fn is_atom(c: &char) -> bool {
 pub struct Lexer<'input> {
     peekable: Peekable<Chars<'input>>,
     input: &'input str,
-    start: usize,
-    index: usize,
+    start: Position,
+    current: Position,
 }
-/// A utility enum for handling two possible types.
-pub enum Either<A, B> {
-    Left(A),
-    Right(B),
-}
-
-type Lexeme = String;
 
 impl<'input> Lexer<'input> {
     /// Creates a new `Lexer` for the given input.
@@ -33,20 +25,20 @@ impl<'input> Lexer<'input> {
         Self {
             peekable: input.chars().peekable(),
             input,
-            start: 0,
-            index: 0,
+            start: Position::zeroed(),
+            current: Position::zeroed(),
         }
     }
 
     /// Advances the lexer and returns the next character.
     fn advance(&mut self) -> Option<char> {
         let c = self.peekable.next()?;
-        self.index += c.len_utf8();
+        self.current.advance(c);
         Some(c)
     }
 
     /// Advances the lexer while the predicate is true.
-    fn advance_while(&mut self, pred: fn(&char) -> bool) {
+    fn accumulate(&mut self, pred: fn(&char) -> bool) {
         while let Some(&c) = self.peekable.peek() {
             if pred(&c) {
                 self.advance();
@@ -58,98 +50,56 @@ impl<'input> Lexer<'input> {
 
     /// Saves the current index as the start of the next token.
     fn save(&mut self) {
-        self.start = self.index;
+        self.start = self.current.clone();
     }
 
     /// Creates a spanned object with the given data.
     fn spanned<T>(&self, data: T) -> Spanned<T> {
-        Spanned::new(data, Span::new(self.start, self.index))
+        Spanned::new(data, Span::new(self.start.clone(), self.current.clone()))
     }
 
     /// Consumes whitespace and returns it as a spanned string.
-    fn whitespace(&mut self) -> Spanned<String> {
-        self.save();
-        self.advance_while(|c| c.is_ascii_whitespace());
-        let whitespace = self.input[self.start..self.index].to_owned();
-        self.spanned(whitespace)
+    fn whitespace(&mut self) -> SyntaxKind {
+        self.accumulate(|c| c.is_ascii_whitespace());
+        SyntaxKind::Whitespace
     }
 
     /// Consumes comments and returns either a `Comment` or spanned whitespace.
-    fn comment(&mut self) -> Either<Comment, Spanned<String>> {
-        let whitespace = self.whitespace();
-        self.save();
-
-        if let Some(';') = self.peekable.peek() {
-            self.advance_while(|c| *c != '\n');
-            let comment = self.input[self.start..self.index].to_owned();
-            let comment = self.spanned(comment);
-            Either::Left(Comment {
-                whitespace,
-                comment,
-            })
-        } else {
-            Either::Right(whitespace)
-        }
-    }
-
-    /// Consumes multiple comments and returns them along with trailing whitespace.
-    fn comments(&mut self) -> (Vec<Comment>, Spanned<String>) {
-        let mut comments = vec![];
-        loop {
-            match self.comment() {
-                Either::Left(comment) => comments.push(comment),
-                Either::Right(whitespace) => break (comments, whitespace),
-            }
-        }
-    }
-
-    /// Returns the next token from the input.
-    pub fn next_token(&mut self) -> Token {
-        let (comments, whitespace) = self.comments();
-        self.save();
-
-        let (kind, lexeme) = self.token();
-        let lexeme = self.spanned(lexeme);
-        Token {
-            kind,
-            info: TokenInfo {
-                comments,
-                whitespace,
-                lexeme,
-            },
-        }
+    fn comment(&mut self) -> SyntaxKind {
+        self.accumulate(|c| *c != '\n');
+        SyntaxKind::Comment
     }
 
     /// Determines the next token kind and its lexeme.
-    fn token(&mut self) -> (TokenKind, Lexeme) {
+    fn token(&mut self) -> Syntax {
         let kind = if let Some(c) = self.advance() {
             match c {
-                '(' => TokenKind::LParens,
-                ')' => TokenKind::RParens,
-                '[' => TokenKind::LBracket,
-                ']' => TokenKind::RBracket,
-                '\'' => TokenKind::SimpleQuote,
-                '"' => return self.string(),
+                '(' => SyntaxKind::LPar,
+                ')' => SyntaxKind::RPar,
+                '\'' => SyntaxKind::SimpleQuote,
+                ';' => self.comment(),
+                '"' => self.string(),
+                c if c.is_ascii_whitespace() => self.whitespace(),
                 c if c.is_ascii_alphabetic() => {
-                    self.advance_while(is_atom);
-                    TokenKind::Identifier
+                    self.accumulate(is_atom);
+                    SyntaxKind::Identifier
                 }
                 c if c.is_ascii_digit() => {
-                    self.advance_while(|c| c.is_ascii_digit());
-                    TokenKind::Number
+                    self.accumulate(|c| c.is_ascii_digit());
+                    SyntaxKind::Number
                 }
-                _ => TokenKind::Error,
+                _ => SyntaxKind::Error,
             }
         } else {
-            TokenKind::Eof
+            SyntaxKind::Eof
         };
 
-        let lexeme = self.input[self.start..self.index].to_owned();
-        (kind, lexeme)
+        let lexeme = self.input[self.start.index..self.current.index].to_owned();
+        (kind, self.spanned(lexeme))
     }
 
     /// Consumes a string token, handling escape characters and errors.
-    fn string(&mut self) -> (TokenKind, Lexeme) {
+    fn string(&mut self) -> SyntaxKind {
         let mut s = String::new();
         while let Some(&c) = self.peekable.peek() {
             match c {
@@ -157,30 +107,58 @@ impl<'input> Lexer<'input> {
                 _ => s.push(self.advance().unwrap()),
             }
         }
+
         if let Some('"') = self.advance() {
-            (TokenKind::String, s)
+            SyntaxKind::String
         } else {
-            (TokenKind::Error, s)
+            SyntaxKind::Error
+        }
+    }
+
+    /// Returns the next token from the input.
+    pub fn bump(&mut self) -> Syntax {
+        self.save();
+        self.token()
+    }
+
+    pub fn peekable(self) -> Peekable<Self> {
+        std::iter::Iterator::peekable(self)
+    }
+}
+
+impl<'input> Iterator for Lexer<'input> {
+    type Item = Syntax;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.bump() {
+            (SyntaxKind::Eof, _) => None,
+            other => Some(other),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Lexer;
+    use super::*;
 
     #[test]
-    fn read_token_with_comment() {
-        let input = r#"
-
-; here
-; comment
-
-fly
-
-"#;
-        let mut lexer = Lexer::new(input);
-        let token = lexer.next_token();
-        println!("{:?}", token);
+    fn it_works() {
+        let mut result = Lexer::new("(ata    \"ata\" 232 (4 5 \"b\")))) (a 2 3)");
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
+        println!("{:?}", result.bump());
     }
 }
