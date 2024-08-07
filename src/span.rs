@@ -7,25 +7,60 @@
 //! - [Position] : Represents a specific position in a source.
 //!
 
+use core::fmt;
+
 /// Represents a span with a start and end position.
-#[derive(Clone, Debug)]
-pub struct Position {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Point {
     pub line: usize,
     pub column: usize,
-    pub index: usize,
 }
 
-impl Position {
-    pub fn new(line: usize, column: usize, index: usize) -> Self {
+impl Point {
+    /// Subtract the difference between two points
+    pub fn subtract(&self, other: &Point) -> Point {
+        if self.line == other.line {
+            Point {
+                line: self.line,
+                column: self.column.saturating_sub(other.column),
+            }
+        } else {
+            Point {
+                line: self.line.saturating_sub(other.line),
+                column: self.column, // No change in column if lines are different
+            }
+        }
+    }
+}
+
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.line.cmp(&other.line) {
+            std::cmp::Ordering::Equal => self.column.cmp(&other.column).into(),
+            other => other.into(),
+        }
+    }
+}
+
+impl Ord for Point {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.line.cmp(&other.line) {
+            std::cmp::Ordering::Equal => self.column.cmp(&other.column),
+            other => other,
+        }
+    }
+}
+
+impl Point {
+    pub fn new(line: usize, column: usize) -> Self {
         Self {
             line,
             column,
-            index,
         }
     }
 
     pub fn zeroed() -> Self {
-        Self::new(1, 0, 0)
+        Self::new(0, 0)
     }
 
     pub fn advance(&mut self, char: char) {
@@ -35,26 +70,33 @@ impl Position {
         } else {
             self.column += 1;
         }
-        self.index += char.len_utf8();
     }
 }
 
 /// Represents a span with a start and end position.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Span {
-    start: Position,
-    end: Position,
+    pub start: Point,
+    pub end: Point,
 }
 
 impl Span {
+    pub fn intersect(&self, span2: &Span) -> bool {
+        !(self.end < span2.start || span2.end < self.start)
+    }
+
+    pub fn after(&self, span2: &Span) -> bool {
+        self.start > span2.end
+    }
+
     /// Creates a new `Span` with the given start and end positions.
-    pub fn new(start: Position, end: Position) -> Self {
+    pub fn new(start: Point, end: Point) -> Self {
         Self { start, end }
     }
 
     /// Creates a ghost `Span` with both start and end set to 0.
     pub fn empty() -> Self {
-        Self::new(Position::zeroed(), Position::zeroed())
+        Self::new(Point::zeroed(), Point::zeroed())
     }
 
     /// Combines two spans into one, taking the minimum start and maximum end.
@@ -64,7 +106,7 @@ impl Span {
 }
 
 /// Wraps data with a span.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spanned<T> {
     pub data: T,
     pub span: Span,
@@ -74,5 +116,19 @@ impl<T> Spanned<T> {
     /// Creates a new `Spanned` instance with the given data and span.
     pub fn new(data: T, span: Span) -> Self {
         Self { data, span }
+    }
+}
+
+pub type EditedSpan = Span;
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}", self.line, self.column)
+    }
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.start, self.end)
     }
 }

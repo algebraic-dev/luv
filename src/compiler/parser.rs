@@ -1,164 +1,167 @@
 //! A module for parsing tokens into an concrete syntax tree.
 
-use rowan::GreenNodeBuilder;
 use std::iter::Peekable;
 
-use super::syntax::{Syntax, SyntaxKind};
-use crate::{
-    compiler::lexer::Lexer,
-    span::{Position, Span, Spanned},
+use super::{
+    concrete::{GreenNodeBuilder, SyntaxNode},
+    lexer::Lexer,
+    syntax::{Syntax, SyntaxKind},
 };
+use crate::span::{Span, Spanned};
 
-/// A parser for converting tokens into an CST.
-pub struct Parser<'input> {
-    lexer: Peekable<Lexer<'input>>,
-    builder: GreenNodeBuilder<'static>,
-    errors: Vec<Spanned<String>>,
-    span: Span,
-}
-
-impl<'input> Parser<'input> {
-    /// Creates a new `Parser` for the given lexer.
-    pub fn new(lexer: Lexer<'input>) -> Self {
-        Self {
-            lexer: lexer.peekable(),
-            builder: GreenNodeBuilder::new(),
-            errors: Vec::new(),
-            span: Span::new(Position::zeroed(), Position::zeroed()),
-        }
-    }
-}
-
-/// The
 pub enum Response {
     Ok,
     Eof,
     RParen,
 }
 
+/// A parser for converting tokens into a Concrete Syntax Tree (CST).
+pub struct Parser<'input> {
+    lexer: Peekable<Lexer<'input>>,
+    builder: GreenNodeBuilder,
+    errors: Vec<Spanned<String>>,
+    span: Span
+}
+
 impl<'input> Parser<'input> {
-    /// Gets the current `SyntaxKind` of the token that we are analysing.
+    /// Creates a new parser instance from a given lexer.
+    pub fn new(lexer: Lexer<'input>) -> Self {
+        Self {
+            lexer: lexer.peekable(),
+            builder: GreenNodeBuilder::new(),
+            errors: Vec::new(),
+            span: Span::empty()
+        }
+    }
+
+    fn start_node(&mut self, kind: SyntaxKind) {
+        let span = self.current_span();
+        self.builder.start_node(kind, span)
+    }
+
+
+    fn finish_node(&mut self) {
+        let span = self.current_span();
+        self.builder.finish_node(span)
+    }
+
+    /// Returns the current token's kind, if any.
     fn current(&mut self) -> Option<SyntaxKind> {
         self.lexer.peek().map(|(kind, _)| kind).copied()
     }
 
-    /// Advances one token in the lexer.
+    /// Returns the current token's span, if any.
+    fn current_span(&mut self) -> Span {
+        let start = self.lexer.peek().map(|(_, s)| s.span.clone());
+        self.span = start.unwrap_or(self.span.clone());
+        self.span.clone()
+    }
+
+    /// Advances to the next token in the input stream.
     fn bump(&mut self) -> Syntax {
         let (kind, spanned) = self.lexer.next().unwrap();
-        self.builder.token(kind.into(), spanned.data.as_str());
-        self.span = spanned.span.clone();
+        self.builder.token(kind.into(), spanned.data.as_str(), spanned.span.clone());
 
         (kind, spanned)
     }
 
-    /// Removes all the whitespaces.
+    /// Skips whitespace and comments in the input stream.
     fn skip_whitespace(&mut self) {
         while let Some(SyntaxKind::Whitespace | SyntaxKind::Comment) = self.current() {
             self.bump();
         }
     }
 
+    /// Parses a string literal.
     fn string(&mut self) {
-        self.builder.start_node(SyntaxKind::String.into());
+        self.start_node(SyntaxKind::String.into());
         self.bump();
-        self.builder.finish_node();
+        self.finish_node();
     }
 
+    /// Parses an identifier.
     fn identifier(&mut self) {
-        self.builder.start_node(SyntaxKind::Identifier.into());
+        self.start_node(SyntaxKind::Identifier.into());
         self.bump();
-        self.builder.finish_node();
+        self.finish_node();
     }
 
+    /// Parses a numeric literal.
     fn number(&mut self) {
-        self.builder.start_node(SyntaxKind::Number.into());
+        self.start_node(SyntaxKind::Number.into());
         self.bump();
-        self.builder.finish_node();
+        self.finish_node();
     }
 
+    /// Records a parsing error.
     fn error(&mut self, message: impl Into<String>) {
-        let span = self.span.clone();
-        self.builder.start_node(SyntaxKind::Error.into());
+        let span = self.current_span();
+        self.start_node(SyntaxKind::Error.into());
         self.errors.push(Spanned::new(message.into(), span));
         self.bump();
-        self.builder.finish_node();
+        self.finish_node();
     }
 
-    fn list(&mut self) {
-        self.builder.start_node(SyntaxKind::List.into());
+    /// Parses a list of expressions.
+    fn list(&mut self, span: Span) {
+        self.start_node(SyntaxKind::List.into());
         self.bump();
         loop {
             match self.expr() {
                 Response::Ok => (),
                 Response::Eof => {
-                    self.error("unmatched )");
+                    self.errors.push(Spanned::new("unmatched".into(), span));
+                    self.finish_node();
                     break;
                 }
                 Response::RParen => {
+                    self.finish_node();
                     self.bump();
                     break;
                 }
             }
         }
-        self.builder.finish_node();
     }
 
+    /// Parses an expression.
     pub fn expr(&mut self) -> Response {
         self.skip_whitespace();
 
-        let t = match self.current() {
+        let (kind, span) = match self.current().zip(Some(self.current_span())) {
             None => return Response::Eof,
-            Some(SyntaxKind::RPar) => return Response::RParen,
-            Some(other) => other,
+            Some((SyntaxKind::RPar, _)) => return Response::RParen,
+            Some((other, s)) => (other, s),
         };
 
-        match t {
-            SyntaxKind::LPar => self.list(),
+        match kind {
+            SyntaxKind::LPar => self.list(span),
             SyntaxKind::String => self.string(),
             SyntaxKind::Identifier => self.identifier(),
             SyntaxKind::Number => self.number(),
-            SyntaxKind::Error => _ = self.bump(),
+            SyntaxKind::Error => {
+                _ = self.bump();
+                self.errors
+                    .push(Spanned::new("unfinished string".to_owned(), span));
+            }
             k => todo!("{k:?}"),
         }
         Response::Ok
     }
 
+    /// Parses the entire input stream and returns the resulting CST and any errors encountered.
     pub fn parse(mut self) -> (SyntaxNode, Vec<Spanned<String>>) {
-        self.builder.start_node(SyntaxKind::Root.into());
+        self.start_node(SyntaxKind::Root.into());
         loop {
             self.skip_whitespace();
-            match self.current() {
+            match self.current().zip(Some(self.current_span())) {
                 None => break,
-                Some(SyntaxKind::LPar) => self.list(),
+                Some((SyntaxKind::LPar, span)) => self.list(span),
                 Some(_) => self.error("Expected (".to_string()),
             }
         }
-        self.builder.finish_node();
-        (
-            SyntaxNode::new_root(self.builder.finish().clone()),
-            self.errors,
-        )
+        (self.builder.finish(), self.errors)
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Lang {}
-impl rowan::Language for Lang {
-    type Kind = SyntaxKind;
-
-    fn kind_from_raw(raw: rowan::SyntaxKind) -> Self::Kind {
-        assert!(raw.0 <= Self::Kind::Root as u16);
-        unsafe { std::mem::transmute::<u16, SyntaxKind>(raw.0) }
-    }
-
-    fn kind_to_raw(kind: Self::Kind) -> rowan::SyntaxKind {
-        kind.into()
-    }
-}
-
-pub type SyntaxNode = rowan::SyntaxNode<Lang>;
-pub type SyntaxToken = rowan::SyntaxToken<Lang>;
-pub type SyntaxElement = rowan::NodeOrToken<SyntaxNode, SyntaxToken>;
 
 #[cfg(test)]
 mod test {
@@ -168,26 +171,12 @@ mod test {
 
     #[test]
     fn lexer_test() {
-        let input = r#"(42
-            ; ata po
-            "a"
-            42)
-
-            3  2 3
-            "#;
+        let input = r#"(a 4 (5 2 1) 3c)"#;
         let parser = Parser::new(Lexer::new(input));
         let (syntax, errors) = parser.parse();
 
         println!("errors = {errors:?}");
 
-        println!("{:?}", syntax);
-        for child in syntax.children_with_tokens() {
-            println!("{:?}", child);
-            if let Some(child) = child.as_node() {
-                for children in child.children_with_tokens() {
-                    println!("  {:?}", children);
-                }
-            }
-        }
+        println!("{:#?}", syntax);
     }
 }

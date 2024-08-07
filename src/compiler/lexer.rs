@@ -2,7 +2,7 @@
 
 use std::{iter::Peekable, str::Chars};
 
-use crate::span::{Position, Span, Spanned};
+use crate::span::{Point, Span, Spanned};
 
 use super::syntax::{Syntax, SyntaxKind};
 
@@ -15,8 +15,10 @@ fn is_atom(c: &char) -> bool {
 pub struct Lexer<'input> {
     peekable: Peekable<Chars<'input>>,
     input: &'input str,
-    start: Position,
-    current: Position,
+    start: Point,
+    current: Point,
+    st_idx: usize,
+    cr_idx: usize
 }
 
 impl<'input> Lexer<'input> {
@@ -25,8 +27,10 @@ impl<'input> Lexer<'input> {
         Self {
             peekable: input.chars().peekable(),
             input,
-            start: Position::zeroed(),
-            current: Position::zeroed(),
+            start: Point::zeroed(),
+            current: Point::zeroed(),
+            st_idx: 0,
+            cr_idx: 0,
         }
     }
 
@@ -34,6 +38,7 @@ impl<'input> Lexer<'input> {
     fn advance(&mut self) -> Option<char> {
         let c = self.peekable.next()?;
         self.current.advance(c);
+        self.cr_idx += c.len_utf8();
         Some(c)
     }
 
@@ -51,6 +56,7 @@ impl<'input> Lexer<'input> {
     /// Saves the current index as the start of the next token.
     fn save(&mut self) {
         self.start = self.current.clone();
+        self.st_idx = self.cr_idx;
     }
 
     /// Creates a spanned object with the given data.
@@ -94,17 +100,19 @@ impl<'input> Lexer<'input> {
             SyntaxKind::Eof
         };
 
-        let lexeme = self.input[self.start.index..self.current.index].to_owned();
+        let lexeme = self.input[self.st_idx..self.cr_idx].to_owned();
         (kind, self.spanned(lexeme))
     }
 
     /// Consumes a string token, handling escape characters and errors.
     fn string(&mut self) -> SyntaxKind {
-        let mut s = String::new();
         while let Some(&c) = self.peekable.peek() {
             match c {
                 '"' => break,
-                _ => s.push(self.advance().unwrap()),
+                _ => {
+                    self.advance();
+                    continue
+                }
             }
         }
 
@@ -134,31 +142,5 @@ impl<'input> Iterator for Lexer<'input> {
             (SyntaxKind::Eof, _) => None,
             other => Some(other),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let mut result = Lexer::new("(ata    \"ata\" 232 (4 5 \"b\")))) (a 2 3)");
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
-        println!("{:?}", result.bump());
     }
 }

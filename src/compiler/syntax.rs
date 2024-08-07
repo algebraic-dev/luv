@@ -25,9 +25,3 @@ pub enum SyntaxKind {
 }
 
 pub type Syntax = (SyntaxKind, Spanned<String>);
-
-impl From<SyntaxKind> for rowan::SyntaxKind {
-    fn from(kind: SyntaxKind) -> Self {
-        Self(kind as u16)
-    }
-}
