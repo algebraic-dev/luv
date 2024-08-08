@@ -1,7 +1,9 @@
 //! This is the module for the language server. It is used as a middle man between the LSP or other services.
 
 use std::{
-    collections::{HashMap, HashSet}, hash::Hash, mem
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    mem,
 };
 
 use document::TextChange;
@@ -68,7 +70,8 @@ impl Manager {
         let mut adds = Vec::new();
 
         for (to_add, _) in to_add {
-            self.definitions.insert(to_add.data, (to_add.span, "function".to_string()));
+            self.definitions
+                .insert(to_add.data, (to_add.span, "function".to_string()));
         }
 
         let mut check_context = check::Context::new(self, &mut errors);
@@ -148,7 +151,11 @@ impl Manager {
         self.documents.get_mut(&id)
     }
 
-    pub fn get_completions(&mut self, id: document::Id, position: Point) -> HashMap<String, (Span, String)> {
+    pub fn get_completions(
+        &mut self,
+        id: document::Id,
+        position: Point,
+    ) -> HashMap<String, (Span, String)> {
         let mut completed = HashMap::default();
 
         for (def, span) in &self.definitions {

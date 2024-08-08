@@ -30,7 +30,7 @@ impl SyntaxNode {
     pub fn get_id(&self) -> Id {
         Id(self.span.clone(), self.hash)
     }
-    
+
     pub fn find_token_containing_point(&self, point: &Point) -> Option<SyntaxToken> {
         for child in &self.children {
             if let Some(token) = child.find_token_containing_point(point) {

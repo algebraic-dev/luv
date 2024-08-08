@@ -194,7 +194,7 @@ pub struct Def(pub List);
 
 impl Def {
     pub fn span(&self) -> Span {
-        self.0.1.span.clone()
+        self.0 .1.span.clone()
     }
 
     pub fn from_list(syn: List) -> Self {
@@ -221,7 +221,7 @@ pub struct Defn(pub List);
 
 impl Defn {
     pub fn span(&self) -> Span {
-        self.0.1.span.clone()
+        self.0 .1.span.clone()
     }
 
     pub fn from_list(syn: List) -> Self {
@@ -252,7 +252,7 @@ impl Eval {
     }
 
     pub fn span(&self) -> Span {
-        self.0.1.span.clone()
+        self.0 .1.span.clone()
     }
 
     pub fn stmt(&mut self) -> Result<Stmt> {
@@ -337,7 +337,7 @@ impl Block {
     }
 
     pub fn span(&self) -> Span {
-        self.0.1.span.clone()
+        self.0 .1.span.clone()
     }
 
     pub fn stmt(&mut self) -> Vec<Result<Stmt>> {
@@ -355,7 +355,7 @@ pub struct Fn(pub List);
 
 impl Fn {
     pub fn span(&self) -> Span {
-        self.0.1.span.clone()
+        self.0 .1.span.clone()
     }
 
     pub fn from_list(syn: List) -> Self {

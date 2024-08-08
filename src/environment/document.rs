@@ -2,7 +2,10 @@
 //! document within a text editor. It includes structures and methods to represent and modify a
 //! document's content, compute its syntax tree, and track changes.
 
-use std::{collections::{HashMap, HashSet}, mem};
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+};
 
 use crate::{
     compiler::{
@@ -32,7 +35,7 @@ pub struct Document {
     pub new_syn: SyntaxNode,
     pub version: usize,
     pub errors: Vec<Spanned<String>>,
-    pub scopes: HashMap<concrete::Id, HashMap<Span, HashMap<String, Span>>>
+    pub scopes: HashMap<concrete::Id, HashMap<Span, HashMap<String, Span>>>,
 }
 
 impl Document {
@@ -45,7 +48,7 @@ impl Document {
             new_syn: SyntaxNode::new(SyntaxKind::Root, vec![], Span::empty()),
             version: 0,
             errors: vec![],
-            scopes: HashMap::default()
+            scopes: HashMap::default(),
         }
     }
 

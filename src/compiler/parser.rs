@@ -135,7 +135,7 @@ impl<'input> Parser<'input> {
         self.bump();
         let span = self.current_span();
         match self.expr() {
-            Response::Ok =>{
+            Response::Ok => {
                 self.finish_node(span);
             }
             _ => {

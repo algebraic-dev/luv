@@ -29,7 +29,7 @@ impl<'a> Context<'a> {
             errs,
             references: HashMap::new(),
             scopes: HashMap::new(),
-            current: vec![]
+            current: vec![],
         }
     }
 
@@ -324,7 +324,11 @@ impl<'a> Context<'a> {
         None
     }
 
-    fn check_set_option(&mut self, _local: Local, mut _set_option: SetOption) -> Option<Spanned<String>> {
+    fn check_set_option(
+        &mut self,
+        _local: Local,
+        mut _set_option: SetOption,
+    ) -> Option<Spanned<String>> {
         None
     }
 

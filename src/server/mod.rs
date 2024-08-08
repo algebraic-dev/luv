@@ -252,7 +252,7 @@ impl LanguageServer for Backend {
                         return Ok(Some(Hover {
                             contents: HoverContents::Markup(MarkupContent {
                                 kind: MarkupKind::Markdown,
-                                value: format!("{} is a {typ}", token.text)
+                                value: format!("{} is a {typ}", token.text),
                             }),
                             range: Some(Range {
                                 start: Position {
@@ -279,7 +279,6 @@ impl LanguageServer for Backend {
         let id = self.get_document_id(&uri).await.unwrap();
         let mut folding_ranges = Vec::new();
 
-
         if let Some(doc) = manager.get_document(id) {
             for token in doc.new_syn.tokens() {
                 if token.kind == SyntaxKind::Comment {
@@ -289,7 +288,7 @@ impl LanguageServer for Backend {
                         end_line: token.span.end.line as u32,
                         end_character: Some(token.span.end.column as u32),
                         kind: Some(FoldingRangeKind::Region),
-                        collapsed_text: None
+                        collapsed_text: None,
                     })
                 }
             }
@@ -302,16 +301,16 @@ impl LanguageServer for Backend {
                         end_line: node.span.end.line as u32,
                         end_character: Some(node.span.end.column as u32),
                         kind: Some(FoldingRangeKind::Region),
-                        collapsed_text: None
+                        collapsed_text: None,
                     })
                 }
             }
         }
 
         if folding_ranges.is_empty() {
-            return Ok(None)
+            return Ok(None);
         } else {
-            return Ok(Some(folding_ranges))
+            return Ok(Some(folding_ranges));
         }
     }
 }
