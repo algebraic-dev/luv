@@ -34,6 +34,10 @@ impl<'input> Lexer<'input> {
         }
     }
 
+    fn peek(&mut self) -> Option<&char> {
+        self.peekable.peek()
+    }
+
     /// Advances the lexer and returns the next character.
     fn advance(&mut self) -> Option<char> {
         let c = self.peekable.next()?;
@@ -73,7 +77,13 @@ impl<'input> Lexer<'input> {
     /// Consumes comments and returns either a `Comment` or spanned whitespace.
     fn comment(&mut self) -> SyntaxKind {
         self.accumulate(|c| *c != '\n');
-        SyntaxKind::Comment
+        self.advance();
+
+        if self.peek() == Some(&';') {
+            self.comment()
+        } else {
+            SyntaxKind::Comment
+        }
     }
 
     /// Determines the next token kind and its lexeme.

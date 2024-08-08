@@ -10,6 +10,15 @@ pub enum Change<'a> {
     Removed(&'a SyntaxNode),
 }
 
+impl<'a> Change<'a> {
+    pub fn split(self, removed: &mut Vec<SyntaxNode>, added: &mut Vec<SyntaxNode>) {
+        match self {
+            Change::Added(add) => added.push(add.clone()),
+            Change::Removed(rem) => removed.push(rem.clone()),
+        }
+    }
+}
+
 fn filter_top_level_children<'a>(node: &SyntaxNode) -> impl Iterator<Item = &SyntaxNode> {
     node.nodes()
         .filter(|child| !matches!(child.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment))

@@ -1,0 +1,15 @@
+(defn ata (x y z) (ata ata 3))
+(defn deeee (x y z)
+    (ata ata 3))
+
+; a big comment
+; then anoteher comment
+; and hten other
+
+(defn c (x) (let adsakdksadkasdsadsa 3)
+    (let a 2)
+    (let a 2)
+    (let a 2)
+    (let a 2)
+    (let a 2))
+

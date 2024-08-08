@@ -9,7 +9,7 @@ use std::{
     slice::Iter,
 };
 
-use crate::span::Span;
+use crate::span::{Point, Span};
 
 /// The identifier of a [SyntaxNode], its used as a lightweight way to compare different nodes.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -29,6 +29,15 @@ pub struct SyntaxNode {
 impl SyntaxNode {
     pub fn get_id(&self) -> Id {
         Id(self.span.clone(), self.hash)
+    }
+    
+    pub fn find_token_containing_point(&self, point: &Point) -> Option<SyntaxToken> {
+        for child in &self.children {
+            if let Some(token) = child.find_token_containing_point(point) {
+                return Some(token);
+            }
+        }
+        None
     }
 }
 
@@ -122,6 +131,21 @@ impl SyntaxNodeOrToken {
         match self {
             SyntaxNodeOrToken::Node(n) => n.hash,
             SyntaxNodeOrToken::Token(t) => t.hash,
+        }
+    }
+}
+
+impl SyntaxNodeOrToken {
+    pub fn find_token_containing_point(&self, point: &Point) -> Option<SyntaxToken> {
+        match self {
+            SyntaxNodeOrToken::Node(node) => node.find_token_containing_point(point),
+            SyntaxNodeOrToken::Token(token) => {
+                if token.span.contains_point(point) {
+                    Some(token.clone())
+                } else {
+                    None
+                }
+            }
         }
     }
 }

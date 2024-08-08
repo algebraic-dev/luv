@@ -92,6 +92,14 @@ impl Span {
         !(self.end < span2.start || span2.end < self.start)
     }
 
+    pub fn contains(&self, other: &Span) -> bool {
+        self.start <= other.start && other.end <= self.end
+    }
+
+    pub fn contains_point(&self, point: &Point) -> bool {
+        self.start <= *point && *point <= self.end
+    }
+
     pub fn after(&self, span2: &Span) -> bool {
         self.start >= span2.end
     }
