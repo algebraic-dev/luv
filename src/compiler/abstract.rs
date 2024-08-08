@@ -128,10 +128,7 @@ impl<'a> List<'a> {
                 }
             }
         }
-        return Err(Spanned::new(
-            err.to_string(),
-            self.1.span.clone(),
-        ));
+        return Err(Spanned::new(err.to_string(), self.1.span.clone()));
     }
 
     pub fn reset(&mut self) {
@@ -159,7 +156,6 @@ impl<'a> Quote<'a> {
         })
     }
 }
-
 
 pub struct Params<'a>(List<'a>);
 
@@ -255,7 +251,8 @@ pub enum TopLevel<'a> {
     Def(Def<'a>),
     Defn(Defn<'a>),
     Eval(Eval<'a>),
-    SetOption(SetOption<'a>)
+    SetOption(SetOption<'a>),
+    Require(Require<'a>),
 }
 
 impl<'a> TopLevel<'a> {
@@ -270,11 +267,14 @@ impl<'a> TopLevel<'a> {
             "defn" => Ok(TopLevel::Defn(Defn::from_list(list))),
             "eval" => Ok(TopLevel::Eval(Eval::from_list(list))),
             "set-option" => Ok(TopLevel::SetOption(SetOption::from_list(list))),
-            _ => Err(Spanned::new("unexpected keyword".to_owned(), syn.span.clone()))
+            "require" => Ok(TopLevel::Require(Require::from_list(list))),
+            _ => Err(Spanned::new(
+                "unexpected keyword".to_owned(),
+                syn.span.clone(),
+            )),
         }
     }
 }
-
 
 pub struct If<'a>(List<'a>);
 
@@ -342,7 +342,7 @@ pub enum Expr<'a> {
     Quote(Quote<'a>),
     Identifier(Identifier<'a>),
     Number(Number<'a>),
-    Str(Str<'a>)
+    Str(Str<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -352,7 +352,7 @@ impl<'a> Expr<'a> {
             SyntaxKind::Number => return Ok(Expr::Number(Number::from_node(syn)?)),
             SyntaxKind::String => return Ok(Expr::Str(Str::from_node(syn)?)),
             SyntaxKind::Quote => return Ok(Expr::Quote(Quote::from_node(syn)?)),
-            _ => ()
+            _ => (),
         };
 
         let mut list = List::from_node(syn)?;
@@ -366,7 +366,7 @@ impl<'a> Expr<'a> {
             _ => {
                 list.reset();
                 Ok(Expr::App(App::from_list(list)))
-            },
+            }
         }
     }
 }
@@ -391,7 +391,7 @@ impl<'a> Let<'a> {
 
 pub enum Stmt<'a> {
     Let(Let<'a>),
-    Expr(Expr<'a>)
+    Expr(Expr<'a>),
 }
 
 impl<'a> Stmt<'a> {
@@ -405,5 +405,18 @@ impl<'a> Stmt<'a> {
             "let" => Ok(Stmt::Let(Let::from_list(list))),
             _ => Ok(Stmt::Expr(Expr::from_node(list.1)?)),
         }
+    }
+}
+
+pub struct Require<'a>(List<'a>);
+
+impl<'a> Require<'a> {
+    pub fn from_list(syn: List<'a>) -> Self {
+        Self(syn)
+    }
+
+    pub fn name(&mut self) -> Result<Identifier> {
+        let name = self.0.next("expected a module name")?;
+        Identifier::from_node(name)
     }
 }
