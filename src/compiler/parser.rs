@@ -9,6 +9,7 @@ use super::{
 };
 use crate::span::{Span, Spanned};
 
+/// The response of parsing a single expression.
 pub enum Response {
     Ok,
     Eof,
@@ -128,6 +129,23 @@ impl<'input> Parser<'input> {
         }
     }
 
+    /// Parses a list of expressions.
+    fn quote(&mut self, start_span: Span) {
+        self.start_node(SyntaxKind::Quote.into());
+        self.bump();
+        let span = self.current_span();
+        match self.expr() {
+            Response::Ok =>{
+                self.finish_node(span);
+            }
+            _ => {
+                self.errors
+                    .push(Spanned::new("no expression".into(), start_span.clone()));
+                self.finish_node(span);
+            }
+        }
+    }
+
     /// Parses an expression.
     pub fn expr(&mut self) -> Response {
         self.skip_whitespace();
@@ -143,6 +161,7 @@ impl<'input> Parser<'input> {
             SyntaxKind::String => self.string(),
             SyntaxKind::Identifier => self.identifier(),
             SyntaxKind::Number => self.number(),
+            SyntaxKind::SimpleQuote => self.quote(span),
             SyntaxKind::Error => {
                 _ = self.bump();
                 self.errors
@@ -181,11 +200,11 @@ mod test {
 
     #[test]
     fn lexer_test() {
-        let input = r#"(a 4 (5 2 1) 3c)"#;
+        let input = r#"(def a (b c) d e 3 "ata")"#;
         let parser = Parser::new(Lexer::new(input));
         let (syntax, errors) = parser.parse();
 
         println!("errors = {errors:?}");
-        println!("{:#?}", syntax);
+        println!("{}", syntax);
     }
 }

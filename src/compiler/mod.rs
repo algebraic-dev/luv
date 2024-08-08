@@ -3,3 +3,4 @@ pub mod concrete;
 pub mod lexer;
 pub mod parser;
 pub mod syntax;
+pub mod r#abstract;

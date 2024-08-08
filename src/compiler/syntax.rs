@@ -21,6 +21,7 @@ pub enum SyntaxKind {
 
     // Composite
     List,
+    Quote,
     Literal,
 
     Root,
@@ -41,6 +42,7 @@ impl fmt::Display for SyntaxKind {
             SyntaxKind::Eof => write!(f, "eof"),
             SyntaxKind::List => write!(f, "list"),
             SyntaxKind::Literal => write!(f, "literal"),
+            SyntaxKind::Quote => write!(f, "quote"),
             SyntaxKind::Root => write!(f, "root"),
         }
     }

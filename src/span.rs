@@ -4,7 +4,6 @@
 //!
 //! - [Span] : Represents a span with a start and end position.
 //! - [Spanned] : Wraps data with a span.
-//! - [Position] : Represents a specific position in a source.
 //!
 
 use core::fmt;

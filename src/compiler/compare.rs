@@ -1,4 +1,5 @@
 use crate::{compiler::syntax::SyntaxKind, span::Span};
+use core::fmt;
 use std::collections::HashMap;
 
 use super::concrete::SyntaxNode;
@@ -34,6 +35,21 @@ fn adjust_span(span: &Span, changed_spans: &[Span]) -> Span {
         }
     }
     adjusted_span
+}
+
+impl<'a> fmt::Display for Change<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Change::Added(added) => {
+                writeln!(f, "Added")?;
+                writeln!(f, "{}", added)
+            }
+            Change::Removed(rem) => {
+                writeln!(f, "Removed")?;
+                writeln!(f, "{}", rem)
+            }
+        }
+    }
 }
 
 pub fn compare_top_level_nodes<'a>(
@@ -79,4 +95,31 @@ pub fn compare<'a>(a: &'a SyntaxNode, b: &'a SyntaxNode, changed: &[Span]) -> Ve
     let mut changes = Vec::new();
     compare_top_level_nodes(a, b, &mut changes, changed);
     changes
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        compiler::{compare::compare, lexer::Lexer, parser::Parser},
+        span::{Point, Span},
+    };
+
+    #[test]
+    fn lexer_test() {
+        let input = r#"(a 4 '(5 2 1) 3c)"#;
+        let input2 = r#"(a 4 '(5 2 1) 3c)"#;
+
+        let (syntax1, _errors) = Parser::new(Lexer::new(input)).parse();
+        let (syntax2, _errors) = Parser::new(Lexer::new(input2)).parse();
+
+        let changes = compare(
+            &syntax1,
+            &syntax2,
+            &[Span::new(Point::new(0, 6), Point::new(0, 6))],
+        );
+
+        for change in changes {
+            println!("{}", change);
+        }
+    }
 }

@@ -86,15 +86,14 @@ impl<'input> Lexer<'input> {
                 ';' => self.comment(),
                 '"' => self.string(),
                 c if c.is_ascii_whitespace() => self.whitespace(),
-                c if c.is_ascii_alphabetic() => {
-                    self.accumulate(is_atom);
-                    SyntaxKind::Identifier
-                }
                 c if c.is_ascii_digit() => {
                     self.accumulate(|c| c.is_ascii_digit());
                     SyntaxKind::Number
                 }
-                _ => SyntaxKind::Error,
+                _ => {
+                    self.accumulate(is_atom);
+                    SyntaxKind::Identifier
+                }
             }
         } else {
             SyntaxKind::Eof

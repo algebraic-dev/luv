@@ -11,11 +11,13 @@ use std::{
 
 use crate::span::Span;
 
+/// The identifier of a [SyntaxNode], its used as a lightweight way to compare different nodes.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Id(Span, u64);
 
 use super::syntax::SyntaxKind;
 
+/// The syntax node express an artificial boundary in the tokens creating a syntatic meaning on them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
@@ -201,9 +203,9 @@ impl SyntaxNode {
         })
     }
 
-    pub fn tokens(&self) -> impl Iterator<Item = &SyntaxNode> {
+    pub fn tokens(&self) -> impl Iterator<Item = &SyntaxToken> {
         self.children.iter().filter_map(|p| {
-            if let SyntaxNodeOrToken::Node(n) = p {
+            if let SyntaxNodeOrToken::Token(n) = p {
                 Some(n)
             } else {
                 None
@@ -211,28 +213,8 @@ impl SyntaxNode {
         })
     }
 
-    pub fn pretty_print2(&self) -> String {
-        let mut result = String::new();
-        self.pretty_print_impl(&mut result);
-        result
-    }
-
-    fn pretty_print_impl(&self, f: &mut String) {
-        use std::fmt::Write;
-
-        write!(f, "(#{}", self.kind).unwrap();
-
-        for child in &self.children {
-            write!(f, " ").unwrap();
-            match child {
-                SyntaxNodeOrToken::Node(node) => node.pretty_print_impl(f),
-                SyntaxNodeOrToken::Token(token) => {
-                    write!(f, "(!{} {:?})", token.kind, token.text).unwrap();
-                }
-            }
-        }
-
-        write!(f, ")").unwrap()
+    pub fn first_token(&self) -> Option<&SyntaxToken> {
+        self.tokens().nth(0)
     }
 }
 
