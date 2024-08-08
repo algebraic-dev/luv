@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::{compiler::syntax::SyntaxKind, span::Span};
+use std::collections::HashMap;
 
 use super::concrete::SyntaxNode;
 
@@ -15,9 +15,9 @@ fn filter_top_level_children<'a>(node: &SyntaxNode) -> impl Iterator<Item = &Syn
 }
 
 fn is_affected_by_changed(span: &Span, changed_spans: &[Span]) -> bool {
-    changed_spans.iter().any(|changed| {
-        span.after(changed) || span.intersect(changed)
-    })
+    changed_spans
+        .iter()
+        .any(|changed| span.after(changed) || span.intersect(changed))
 }
 
 fn adjust_span(span: &Span, changed_spans: &[Span]) -> Span {
@@ -36,7 +36,12 @@ fn adjust_span(span: &Span, changed_spans: &[Span]) -> Span {
     adjusted_span
 }
 
-pub fn compare_top_level_nodes<'a>(a: &'a SyntaxNode, b: &'a SyntaxNode, changes: &mut Vec<Change<'a>>, changed: &[Span]) {
+pub fn compare_top_level_nodes<'a>(
+    a: &'a SyntaxNode,
+    b: &'a SyntaxNode,
+    changes: &mut Vec<Change<'a>>,
+    changed: &[Span],
+) {
     let a_nodes = filter_top_level_children(a).collect::<Vec<_>>();
     let b_nodes = filter_top_level_children(b).collect::<Vec<_>>();
 
@@ -69,7 +74,6 @@ pub fn compare_top_level_nodes<'a>(a: &'a SyntaxNode, b: &'a SyntaxNode, changes
         }
     }
 }
-
 
 pub fn compare<'a>(a: &'a SyntaxNode, b: &'a SyntaxNode, changed: &[Span]) -> Vec<Change<'a>> {
     let mut changes = Vec::new();

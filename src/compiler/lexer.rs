@@ -18,7 +18,7 @@ pub struct Lexer<'input> {
     start: Point,
     current: Point,
     st_idx: usize,
-    cr_idx: usize
+    cr_idx: usize,
 }
 
 impl<'input> Lexer<'input> {
@@ -111,7 +111,7 @@ impl<'input> Lexer<'input> {
                 '"' => break,
                 _ => {
                     self.advance();
-                    continue
+                    continue;
                 }
             }
         }

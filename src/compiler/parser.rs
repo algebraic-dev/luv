@@ -20,7 +20,7 @@ pub struct Parser<'input> {
     lexer: Peekable<Lexer<'input>>,
     builder: GreenNodeBuilder,
     errors: Vec<Spanned<String>>,
-    span: Span
+    span: Span,
 }
 
 impl<'input> Parser<'input> {
@@ -30,7 +30,7 @@ impl<'input> Parser<'input> {
             lexer: lexer.peekable(),
             builder: GreenNodeBuilder::new(),
             errors: Vec::new(),
-            span: Span::empty()
+            span: Span::empty(),
         }
     }
 
@@ -38,7 +38,6 @@ impl<'input> Parser<'input> {
         let span = self.current_span();
         self.builder.start_node(kind, span)
     }
-
 
     fn finish_node(&mut self, span: Span) {
         self.builder.finish_node(span)
@@ -59,7 +58,8 @@ impl<'input> Parser<'input> {
     /// Advances to the next token in the input stream.
     fn bump(&mut self) -> Syntax {
         let (kind, spanned) = self.lexer.next().unwrap();
-        self.builder.token(kind.into(), spanned.data.as_str(), spanned.span.clone());
+        self.builder
+            .token(kind.into(), spanned.data.as_str(), spanned.span.clone());
 
         (kind, spanned)
     }
@@ -114,7 +114,8 @@ impl<'input> Parser<'input> {
             match self.expr() {
                 Response::Ok => (),
                 Response::Eof => {
-                    self.errors.push(Spanned::new("unmatched".into(), start_span.clone()));
+                    self.errors
+                        .push(Spanned::new("unmatched".into(), start_span.clone()));
                     self.finish_node(span);
                     break;
                 }

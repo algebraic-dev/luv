@@ -41,7 +41,7 @@ impl fmt::Display for SyntaxKind {
             SyntaxKind::Eof => write!(f, "eof"),
             SyntaxKind::List => write!(f, "list"),
             SyntaxKind::Literal => write!(f, "literal"),
-            SyntaxKind::Root => write!(f, "root")
+            SyntaxKind::Root => write!(f, "root"),
         }
     }
 }

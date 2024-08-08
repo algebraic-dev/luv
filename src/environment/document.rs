@@ -1,19 +1,30 @@
-//! A document is just a reference to the entire page of something. It's used to manage, clear and
-//! track things when it's being used in a text editor.
+//! The `Document` module provides functionalities for managing and tracking changes in a text
+//! document within a text editor. It includes structures and methods to represent and modify a
+//! document's content, compute its syntax tree, and track changes.
 
 use std::mem;
 
-use crate::{compiler::{compare::{self, Change}, concrete::SyntaxNode, parser, syntax::SyntaxKind}, span::{Span, Spanned}};
+use crate::{
+    compiler::{
+        compare::{self, Change},
+        concrete::SyntaxNode,
+        parser,
+        syntax::SyntaxKind,
+    },
+    span::{Span, Spanned},
+};
 
-/// A change in a part of the text.
+/// Represents a change made to a section of text.
 pub struct TextChange {
     pub span: Span,
-    pub text: String
+    pub text: String,
 }
 
+/// An identifier for a document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Id(pub usize);
 
+/// Represents a document within a text editor.
 pub struct Document {
     pub id: Id,
     pub code: String,
@@ -24,6 +35,7 @@ pub struct Document {
 }
 
 impl Document {
+    /// Creates a new `Document` instance with the given ID and initial code.
     pub fn new(id: Id, code: String) -> Self {
         Self {
             id,
@@ -31,11 +43,11 @@ impl Document {
             old_syn: SyntaxNode::new(SyntaxKind::Root, vec![], Span::empty()),
             new_syn: SyntaxNode::new(SyntaxKind::Root, vec![], Span::empty()),
             version: 0,
-            errors: vec![]
+            errors: vec![],
         }
     }
 
-    /// Sets a new text to the code without parsing the new CST.
+    /// Updates the document's content based on a list of text changes.
     pub fn update(&mut self, changes: &[TextChange]) -> Vec<Change> {
         for TextChange { span, text } in changes {
             let start = span.start.offset(&self.code);

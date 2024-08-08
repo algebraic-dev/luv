@@ -55,7 +55,10 @@ impl SyntaxNode {
     }
 
     pub fn to_map(&self) -> HashMap<(u64, Span), SyntaxNode> {
-        self.clone().get_nodes().map(|x| ((x.hash, x.span.clone()), x)).collect()
+        self.clone()
+            .get_nodes()
+            .map(|x| ((x.hash, x.span.clone()), x))
+            .collect()
     }
 }
 
@@ -188,7 +191,6 @@ impl SyntaxNode {
         })
     }
 
-
     pub fn get_nodes(self) -> impl Iterator<Item = SyntaxNode> {
         self.children.into_iter().filter_map(|p| {
             if let SyntaxNodeOrToken::Node(n) = p {
@@ -273,13 +275,7 @@ impl PrettyPrint for SyntaxNode {
                     writeln!(
                         f,
                         "{}{}{}{:?} {:?} {} {}",
-                        new_prefix,
-                        token_connector,
-                        DIM,
-                        token.kind,
-                        token.text,
-                        token.span,
-                        RESET
+                        new_prefix, token_connector, DIM, token.kind, token.text, token.span, RESET
                     )?;
                 }
             }
@@ -304,7 +300,6 @@ impl fmt::Display for SyntaxNode {
         self.pretty_print(f, "", true)
     }
 }
-
 
 impl fmt::Display for SyntaxNodeOrToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

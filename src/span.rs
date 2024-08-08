@@ -64,10 +64,7 @@ impl Ord for Point {
 
 impl Point {
     pub fn new(line: usize, column: usize) -> Self {
-        Self {
-            line,
-            column,
-        }
+        Self { line, column }
     }
 
     pub fn zeroed() -> Self {

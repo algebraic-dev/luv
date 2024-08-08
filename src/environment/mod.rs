@@ -16,7 +16,7 @@ impl Manager {
     pub fn new_document(&mut self, code: String) -> document::Id {
         let id = document::Id(self.documents_id);
         self.documents.insert(id, document::Document::new(id, code));
-        return id
+        return id;
     }
 
     /// Deletes a document from the store.
