@@ -1,8 +1,7 @@
 //! This is the module for the language server. It is used as a middle man between the LSP or other services.
 
 use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
+    collections::HashMap,
     mem,
 };
 
@@ -107,7 +106,7 @@ impl Manager {
         doc.errors.append(&mut errors);
 
         self.documents.insert(id, doc);
-        return id;
+        id
     }
 
     /// Updates the document.
@@ -117,7 +116,7 @@ impl Manager {
         changes: &[TextChange],
     ) -> Vec<Spanned<String>> {
         let (removed, added) = if let Some(doc) = self.get_document(id) {
-            let changes = doc.update(&changes);
+            let changes = doc.update(changes);
             split(changes)
         } else {
             return vec![];
@@ -138,7 +137,7 @@ impl Manager {
             return doc.errors.clone();
         }
 
-        return vec![];
+        vec![]
     }
 
     /// Deletes a document from the store.

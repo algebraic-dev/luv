@@ -3,7 +3,7 @@
 //! document's content, compute its syntax tree, and track changes.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     mem,
 };
 
@@ -57,7 +57,7 @@ impl Document {
         for TextChange { span, text } in changes {
             let start = span.start.offset(&self.code);
             let end = span.end.offset(&self.code);
-            self.code.replace_range(start..end, &text);
+            self.code.replace_range(start..end, text);
             self.version = self.version.wrapping_add(1);
         }
 

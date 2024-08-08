@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     compiler::{concrete::SyntaxNode, r#abstract::*},
@@ -34,7 +34,7 @@ impl<'a> Context<'a> {
     }
 
     fn push_on_scope(&mut self, name: String, span: Span) {
-        if let Some(scope) = self.current.get(0) {
+        if let Some(scope) = self.current.first() {
             let vec = self.scopes.entry(scope.clone()).or_default();
             vec.insert(name, span);
         }
@@ -59,8 +59,8 @@ impl<'a> Context<'a> {
     }
 
     fn get<T>(&mut self, name: Result<T, Spanned<String>>) -> Option<T> {
-        let name = self.push_error(name);
-        name
+        
+        self.push_error(name)
     }
 
     fn check_ref(&mut self, local: im_rc::HashMap<String, Span>, name: String, span: Span) {

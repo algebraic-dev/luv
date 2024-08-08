@@ -60,7 +60,7 @@ impl<'input> Parser<'input> {
     fn bump(&mut self) -> Syntax {
         let (kind, spanned) = self.lexer.next().unwrap();
         self.builder
-            .token(kind.into(), spanned.data.as_str(), spanned.span.clone());
+            .token(kind, spanned.data.as_str(), spanned.span.clone());
 
         (kind, spanned)
     }
@@ -74,7 +74,7 @@ impl<'input> Parser<'input> {
 
     /// Parses a string literal.
     fn string(&mut self) {
-        self.start_node(SyntaxKind::String.into());
+        self.start_node(SyntaxKind::String);
         let span = self.current_span();
         self.bump();
         self.finish_node(span);
@@ -82,7 +82,7 @@ impl<'input> Parser<'input> {
 
     /// Parses an identifier.
     fn identifier(&mut self) {
-        self.start_node(SyntaxKind::Identifier.into());
+        self.start_node(SyntaxKind::Identifier);
         let span = self.current_span();
         self.bump();
         self.finish_node(span);
@@ -90,7 +90,7 @@ impl<'input> Parser<'input> {
 
     /// Parses a numeric literal.
     fn number(&mut self) {
-        self.start_node(SyntaxKind::Number.into());
+        self.start_node(SyntaxKind::Number);
         let span = self.current_span();
         self.bump();
         self.finish_node(span);
@@ -99,7 +99,7 @@ impl<'input> Parser<'input> {
     /// Records a parsing error.
     fn error(&mut self, message: impl Into<String>) {
         let span = self.current_span();
-        self.start_node(SyntaxKind::Error.into());
+        self.start_node(SyntaxKind::Error);
         self.errors.push(Spanned::new(message.into(), span));
         let span = self.current_span();
         self.bump();
@@ -108,7 +108,7 @@ impl<'input> Parser<'input> {
 
     /// Parses a list of expressions.
     fn list(&mut self, start_span: Span) {
-        self.start_node(SyntaxKind::List.into());
+        self.start_node(SyntaxKind::List);
         self.bump();
         loop {
             let span = self.current_span();
@@ -131,7 +131,7 @@ impl<'input> Parser<'input> {
 
     /// Parses a list of expressions.
     fn quote(&mut self, start_span: Span) {
-        self.start_node(SyntaxKind::Quote.into());
+        self.start_node(SyntaxKind::Quote);
         self.bump();
         let span = self.current_span();
         match self.expr() {
@@ -174,7 +174,7 @@ impl<'input> Parser<'input> {
 
     /// Parses the entire input stream and returns the resulting CST and any errors encountered.
     pub fn parse(mut self) -> (SyntaxNode, Vec<Spanned<String>>) {
-        self.start_node(SyntaxKind::Root.into());
+        self.start_node(SyntaxKind::Root);
         loop {
             self.skip_whitespace();
             match self.current().zip(Some(self.current_span())) {

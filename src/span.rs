@@ -33,8 +33,8 @@ impl Point {
     pub fn offset(&self, doc: &str) -> usize {
         let mut offset = 0;
         for (line_num, line) in doc.lines().enumerate() {
-            if line_num == self.line as usize {
-                offset += self.column as usize;
+            if line_num == self.line {
+                offset += self.column;
                 break;
             }
             offset += line.len() + 1;

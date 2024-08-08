@@ -53,7 +53,7 @@ pub fn check_token(node: &SyntaxNode, kind: SyntaxKind) -> Result<&str> {
 }
 
 pub fn check_node(node: SyntaxNode, kind: SyntaxKind) -> Result<()> {
-    if let Some(SyntaxNode { kind: tkn, .. }) = node.nodes().nth(0) {
+    if let Some(SyntaxNode { kind: tkn, .. }) = node.nodes().next() {
         if kind == *tkn {
             return Ok(());
         }
@@ -69,7 +69,7 @@ pub fn assert_node(not: SyntaxNodeOrToken) -> Result<SyntaxNode> {
     match not {
         SyntaxNodeOrToken::Node(node) => Ok(node),
         SyntaxNodeOrToken::Token(token) => {
-            Err(Spanned::new(format!("unexpected."), token.span.clone()))
+            Err(Spanned::new("unexpected.".to_string(), token.span.clone()))
         }
     }
 }
@@ -78,7 +78,7 @@ pub fn assert_token(not: SyntaxNodeOrToken) -> Result<SyntaxToken> {
     match not {
         SyntaxNodeOrToken::Token(node) => Ok(node),
         SyntaxNodeOrToken::Node(token) => {
-            Err(Spanned::new(format!("unexpected."), token.span.clone()))
+            Err(Spanned::new("unexpected.".to_string(), token.span.clone()))
         }
     }
 }
@@ -134,7 +134,7 @@ impl List {
                 }
             }
         }
-        return Err(Spanned::new(err.to_string(), self.1.span.clone()));
+        Err(Spanned::new(err.to_string(), self.1.span.clone()))
     }
 
     pub fn reset(&mut self) {

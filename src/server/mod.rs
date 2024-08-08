@@ -52,7 +52,7 @@ impl Backend {
             })
         }
 
-        return errs;
+        errs
     }
 
     /// Change all change events to text ranges.
@@ -79,7 +79,7 @@ impl Backend {
 
     pub async fn get_document_id(&self, uri: &Url) -> Option<document::Id> {
         let docstore = self.doc_map.read().await;
-        docstore.get(&uri).copied()
+        docstore.get(uri).copied()
     }
 
     pub async fn publish_diagnostics(&self, uri: &Url, errs: Vec<Diagnostic>) {

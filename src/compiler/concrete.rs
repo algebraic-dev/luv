@@ -155,6 +155,12 @@ pub struct GreenNodeBuilder {
     stack: Vec<(SyntaxKind, Vec<SyntaxNodeOrToken>, Span)>,
 }
 
+impl Default for GreenNodeBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GreenNodeBuilder {
     /// Initializes a new GreenNodeBuilder.
     pub fn new() -> Self {
