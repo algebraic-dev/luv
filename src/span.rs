@@ -17,19 +17,30 @@ pub struct Point {
 }
 
 impl Point {
-    /// Subtract the difference between two points
     pub fn subtract(&self, other: &Point) -> Point {
         if self.line == other.line {
             Point {
-                line: self.line,
+                line: 0,
                 column: self.column.saturating_sub(other.column),
             }
         } else {
             Point {
                 line: self.line.saturating_sub(other.line),
-                column: self.column, // No change in column if lines are different
+                column: self.column,
             }
         }
+    }
+
+    pub fn offset(&self, doc: &str) -> usize {
+        let mut offset = 0;
+        for (line_num, line) in doc.lines().enumerate() {
+            if line_num == self.line as usize {
+                offset += self.column as usize;
+                break;
+            }
+            offset += line.len() + 1;
+        }
+        offset
     }
 }
 
@@ -86,7 +97,7 @@ impl Span {
     }
 
     pub fn after(&self, span2: &Span) -> bool {
-        self.start > span2.end
+        self.start >= span2.end
     }
 
     /// Creates a new `Span` with the given start and end positions.

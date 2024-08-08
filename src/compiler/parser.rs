@@ -40,8 +40,7 @@ impl<'input> Parser<'input> {
     }
 
 
-    fn finish_node(&mut self) {
-        let span = self.current_span();
+    fn finish_node(&mut self, span: Span) {
         self.builder.finish_node(span)
     }
 
@@ -75,22 +74,25 @@ impl<'input> Parser<'input> {
     /// Parses a string literal.
     fn string(&mut self) {
         self.start_node(SyntaxKind::String.into());
+        let span = self.current_span();
         self.bump();
-        self.finish_node();
+        self.finish_node(span);
     }
 
     /// Parses an identifier.
     fn identifier(&mut self) {
         self.start_node(SyntaxKind::Identifier.into());
+        let span = self.current_span();
         self.bump();
-        self.finish_node();
+        self.finish_node(span);
     }
 
     /// Parses a numeric literal.
     fn number(&mut self) {
         self.start_node(SyntaxKind::Number.into());
+        let span = self.current_span();
         self.bump();
-        self.finish_node();
+        self.finish_node(span);
     }
 
     /// Records a parsing error.
@@ -98,25 +100,27 @@ impl<'input> Parser<'input> {
         let span = self.current_span();
         self.start_node(SyntaxKind::Error.into());
         self.errors.push(Spanned::new(message.into(), span));
+        let span = self.current_span();
         self.bump();
-        self.finish_node();
+        self.finish_node(span);
     }
 
     /// Parses a list of expressions.
-    fn list(&mut self, span: Span) {
+    fn list(&mut self, start_span: Span) {
         self.start_node(SyntaxKind::List.into());
         self.bump();
         loop {
+            let span = self.current_span();
             match self.expr() {
                 Response::Ok => (),
                 Response::Eof => {
-                    self.errors.push(Spanned::new("unmatched".into(), span));
-                    self.finish_node();
+                    self.errors.push(Spanned::new("unmatched".into(), start_span.clone()));
+                    self.finish_node(span);
                     break;
                 }
                 Response::RParen => {
-                    self.finish_node();
                     self.bump();
+                    self.finish_node(span);
                     break;
                 }
             }
@@ -163,6 +167,11 @@ impl<'input> Parser<'input> {
     }
 }
 
+/// Parses a string to a syntax node and a vector of errors.
+pub fn parse(code: &str) -> (SyntaxNode, Vec<Spanned<String>>) {
+    Parser::new(Lexer::new(code)).parse()
+}
+
 #[cfg(test)]
 mod test {
     use crate::compiler::lexer::Lexer;
@@ -176,7 +185,6 @@ mod test {
         let (syntax, errors) = parser.parse();
 
         println!("errors = {errors:?}");
-
         println!("{:#?}", syntax);
     }
 }

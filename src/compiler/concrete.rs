@@ -2,6 +2,7 @@
 //! piece of data that the code has in order to make it easy to work with a LSP.
 
 use core::fmt;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::{
     hash::{DefaultHasher, Hasher},
@@ -9,6 +10,9 @@ use std::{
 };
 
 use crate::span::Span;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Id(Span, u64);
 
 use super::syntax::SyntaxKind;
 
@@ -18,6 +22,12 @@ pub struct SyntaxNode {
     pub children: Vec<SyntaxNodeOrToken>,
     pub span: Span,
     pub hash: u64,
+}
+
+impl SyntaxNode {
+    pub fn get_id(&self) -> Id {
+        Id(self.span.clone(), self.hash)
+    }
 }
 
 impl Hash for SyntaxNode {
@@ -42,6 +52,10 @@ impl SyntaxNode {
             hash,
             span,
         }
+    }
+
+    pub fn to_map(&self) -> HashMap<(u64, Span), SyntaxNode> {
+        self.clone().get_nodes().map(|x| ((x.hash, x.span.clone()), x)).collect()
     }
 }
 
@@ -194,23 +208,47 @@ impl SyntaxNode {
             }
         })
     }
+
+    pub fn pretty_print2(&self) -> String {
+        let mut result = String::new();
+        self.pretty_print_impl(&mut result);
+        result
+    }
+
+    fn pretty_print_impl(&self, f: &mut String) {
+        use std::fmt::Write;
+
+        write!(f, "(#{}", self.kind).unwrap();
+
+        for child in &self.children {
+            write!(f, " ").unwrap();
+            match child {
+                SyntaxNodeOrToken::Node(node) => node.pretty_print_impl(f),
+                SyntaxNodeOrToken::Token(token) => {
+                    write!(f, "(!{} {:?})", token.kind, token.text).unwrap();
+                }
+            }
+        }
+
+        write!(f, ")").unwrap()
+    }
 }
 
 trait PrettyPrint {
     fn pretty_print(&self, f: &mut fmt::Formatter, prefix: &str, is_last: bool) -> fmt::Result;
 }
 
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const RESET: &str = "\x1b[0m";
+const BOLD: &str = "";
+const DIM: &str = "";
+const RESET: &str = "";
 
 impl PrettyPrint for SyntaxNode {
     fn pretty_print(&self, f: &mut fmt::Formatter, prefix: &str, is_last: bool) -> fmt::Result {
         let connector = if is_last { "└── " } else { "├── " };
         writeln!(
             f,
-            "{}{}{}{:?} {}:{} {}",
-            prefix, connector, BOLD, self.kind, self.span.start.line, self.span.end.column, RESET
+            "{}{}{}{:?} {} {}",
+            prefix, connector, BOLD, self.kind, self.span, RESET
         )?;
 
         let new_prefix = if is_last {
@@ -224,7 +262,7 @@ impl PrettyPrint for SyntaxNode {
             let is_last_child = children.peek().is_none();
             match child {
                 SyntaxNodeOrToken::Node(node) => {
-                    node.pretty_print(f, &new_prefix, is_last_child)?;
+                    node.pretty_print(f, &new_prefix, is_last_child).unwrap();
                 }
                 SyntaxNodeOrToken::Token(token) => {
                     let token_connector = if is_last_child {
@@ -234,14 +272,13 @@ impl PrettyPrint for SyntaxNode {
                     };
                     writeln!(
                         f,
-                        "{}{}{}{:?} {:?} {}:{} {}",
+                        "{}{}{}{:?} {:?} {} {}",
                         new_prefix,
                         token_connector,
                         DIM,
                         token.kind,
                         token.text,
-                        token.span.start.line,
-                        token.span.end.column,
+                        token.span,
                         RESET
                     )?;
                 }
