@@ -1,8 +1,7 @@
 //! A module for parsing tokens into an concrete syntax tree.
 
-use crate::{
-    errors::Error, lexer::Lexer, span::Span, syntax::{SyntaxBuilder, SyntaxKind, SyntaxNode, Token}
-};
+use crate::syntax::{SyntaxBuilder, SyntaxKind, SyntaxNode, Token};
+use crate::{errors::Error, lexer::Lexer, span::Span};
 use std::iter::Peekable;
 
 /// The response of parsing a single expression.
