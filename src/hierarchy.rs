@@ -40,7 +40,11 @@ impl<V> Hierarchy<V> {
 
     /// Adds a new range to the `RangeMap` if it is contained and does not intersect.
     pub fn add_range(&mut self, span: &Span, data: V) -> Result<(), HierarchyError> {
-        fn add<V>(map: &mut Hierarchy<V>, span: &Span, mut data: V) -> Result<Option<V>, HierarchyError> {
+        fn add<V>(
+            map: &mut Hierarchy<V>,
+            span: &Span,
+            mut data: V,
+        ) -> Result<Option<V>, HierarchyError> {
             if &map.site.span == span {
                 Err(HierarchyError::RangeAlreadyExists)
             } else if map.site.span.contains(span) {
@@ -49,7 +53,7 @@ impl<V> Hierarchy<V> {
                     if let Some(result) = result {
                         data = result;
                     } else {
-                        return Ok(None)
+                        return Ok(None);
                     }
                 }
 
@@ -65,16 +69,15 @@ impl<V> Hierarchy<V> {
 
         match add(self, span, data)? {
             Some(_) => Err(HierarchyError::AdjacentRange),
-            None => Ok(())
+            None => Ok(()),
         }
-
     }
 
     /// Finds and returns a mutable reference to the data within a range for the given span.
     pub fn entry<'a>(&'a mut self, span: &Span) -> Result<&'a mut V, HierarchyError> {
         if &self.site.span == span {
             Ok(&mut self.site.data)
-        } else if self.site.span.contains(&span) {
+        } else if self.site.span.contains(span) {
             for map in &mut self.forest {
                 let res = map.entry(span);
                 if res.is_ok() {
@@ -82,7 +85,7 @@ impl<V> Hierarchy<V> {
                 }
             }
             Ok(&mut self.site.data)
-        } else if self.site.span.intersects(&span) {
+        } else if self.site.span.intersects(span) {
             Err(HierarchyError::IntersectingRange)
         } else {
             Err(HierarchyError::RangeNotFound)
@@ -91,7 +94,7 @@ impl<V> Hierarchy<V> {
 
     /// Accumulates and returns a vector of all [Site<V>] instances that intersect with the given span.
     pub fn accumulate<'a>(&'a self, span: &Span) -> Vec<&'a Site<V>> {
-        fn acc<'a, V>(map: &'a Hierarchy<V>, span: &Span, data: &mut Vec<&'a Site<V>>)  {
+        fn acc<'a, V>(map: &'a Hierarchy<V>, span: &Span, data: &mut Vec<&'a Site<V>>) {
             if map.site.span.contains(span) {
                 data.push(&map.site);
 
@@ -127,20 +130,18 @@ impl<T: Default> RangeMapBuilder<T> {
 
         if current_range.site.span == span {
             panic!("The new range cannot be the same as the current range.");
-        } else {
-            if !current_range.site.span.contains(&span) {
-                if current_range.site.span.intersects(&span) {
-                    panic!("The new range intersects with the current range.");
-                }
-                panic!("The new range is not contained within the current range.")
+        } else if !current_range.site.span.contains(&span) {
+            if current_range.site.span.intersects(&span) {
+                panic!("The new range intersects with the current range.");
             }
+            panic!("The new range is not contained within the current range.")
         }
 
         self.data.push(Hierarchy::new(span, Default::default()));
     }
 
     /// Returns a mutable reference to the data of the innermost range.
-    pub fn get<'a>(&'a mut self) -> &'a mut T {
+    pub fn get(&mut self) -> &mut T {
         &mut self.data.last_mut().unwrap().site.data
     }
 
@@ -179,7 +180,10 @@ mod tests {
         let span3 = span(5, 0, 7, 10);
 
         assert!(map.add_range(&span2, "Data2").is_ok());
-        assert_eq!(map.add_range(&span3, "Data3"), Err(HierarchyError::IntersectingRange));
+        assert_eq!(
+            map.add_range(&span3, "Data3"),
+            Err(HierarchyError::IntersectingRange)
+        );
     }
 
     #[test]
@@ -204,18 +208,24 @@ mod tests {
         let mut map = Hierarchy::new(span(0, 0, 10, 10), "Data1");
         map.add_range(&span(5, 0, 7, 10), "Data2").unwrap();
 
-        assert_eq!(map.entry(&span(5, 0, 15, 10)), Err(HierarchyError::IntersectingRange));
+        assert_eq!(
+            map.entry(&span(5, 0, 15, 10)),
+            Err(HierarchyError::IntersectingRange)
+        );
     }
 
     #[test]
     fn test_add_range_with_existing_range() {
         let mut map = Hierarchy::new(span(0, 0, 10, 10), "Data1");
-        assert_eq!(map.add_range(&span(0, 0, 10, 10), "NewData"), Err(HierarchyError::RangeAlreadyExists));
+        assert_eq!(
+            map.add_range(&span(0, 0, 10, 10), "NewData"),
+            Err(HierarchyError::RangeAlreadyExists)
+        );
     }
 
     #[test]
     fn test_open_range() {
-        let mut builder : RangeMapBuilder<&str> = RangeMapBuilder::new(span(0, 0, 10, 10));
+        let mut builder: RangeMapBuilder<&str> = RangeMapBuilder::new(span(0, 0, 10, 10));
 
         builder.open(span(1, 1, 5, 5));
         let data = builder.get();

@@ -2,8 +2,8 @@
 
 //! The storage module provides functionality for storing entities, creating unique IDs for them, and retrieving them.
 
-use std::marker::PhantomData;
 use crate::id::{Id, TypeKind};
+use std::marker::PhantomData;
 
 /// A storage system for managing entities of type `T` identified by `Id<I>`.
 ///
@@ -14,6 +14,12 @@ pub struct Storage<I: TypeKind, T> {
     reuse: Vec<u64>,
     marker: PhantomData<I>,
     counter: u64,
+}
+
+impl<I: TypeKind, T> Default for Storage<I, T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<I: TypeKind, T> Storage<I, T> {
