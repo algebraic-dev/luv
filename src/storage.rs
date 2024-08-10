@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 /// A storage system for managing entities of type `T` identified by `Id<I>`.
 ///
 /// This generic storage allows entities to be stored, retrieved, and managed using unique IDs.
-/// The `TypeKind` trait ensures that only certain types can be used as identifiers.
+/// The [TypeKind] trait ensures that only certain types can be used as identifiers.
 pub struct Storage<I: TypeKind, T> {
     data: Vec<Option<T>>,
     reuse: Vec<u64>,
