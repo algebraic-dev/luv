@@ -1,4 +1,5 @@
-//! A module for handling spans and spanned data. Useful for tasks like tracking positions in source code, especially for parsers or compilers.
+//! A module for handling spans and spanned data. Useful for tasks like tracking positions in source
+//! code.
 
 use core::fmt;
 
@@ -10,17 +11,17 @@ pub struct Point {
 }
 
 impl Point {
-    /// Creates a new `Point` with the given line and column.
+    /// Creates a new [Point] with the given line and column.
     pub fn new(line: usize, column: usize) -> Self {
         Self { line, column }
     }
 
-    /// Creates a `Point` at the origin (line 0, column 0).
+    /// Creates a [Point] at the origin (line 0, column 0).
     pub fn zeroed() -> Self {
         Self::new(0, 0)
     }
 
-    /// Advances the `Point` based on the provided character. 
+    /// Advances the [Point] based on the provided character.
     /// Increments the line if the character is a newline, otherwise increments the column.
     pub fn advance(&mut self, character: char) {
         if character == '\n' {
@@ -31,7 +32,7 @@ impl Point {
         }
     }
 
-    /// Subtracts another `Point` from this one, returning the difference as a new `Point`.
+    /// Subtracts another [Point] from this one, returning the difference as a new [Point].
     /// If the points are on the same line, only the column difference is considered.
     pub fn subtract(&self, other: &Point) -> Point {
         if self.line == other.line {
@@ -47,7 +48,7 @@ impl Point {
         }
     }
 
-    /// Converts the `Point` into a byte offset within the provided document string.
+    /// Converts the [Point] into a byte offset within the provided document string.
     pub fn to_offset(&self, doc: &str) -> usize {
         let mut offset = 0;
         for (line_num, line) in doc.lines().enumerate() {
@@ -63,10 +64,7 @@ impl Point {
 
 impl PartialOrd for Point {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.line.cmp(&other.line) {
-            std::cmp::Ordering::Equal => self.column.cmp(&other.column).into(),
-            other => other.into(),
-        }
+        Some(self.cmp(other))
     }
 }
 
@@ -93,32 +91,37 @@ pub struct Span {
 }
 
 impl Span {
-    /// Creates a new `Span` with the given start and end positions.
+    /// Creates a new [Span] with the given start and end positions.
     pub fn new(start: Point, end: Point) -> Self {
         Self { start, end }
     }
 
-    /// Creates an empty `Span` with both start and end at the origin.
+    /// Creates an empty [Span] with both start and end at the origin.
     pub fn empty() -> Self {
         Self::new(Point::zeroed(), Point::zeroed())
     }
 
-    /// Checks if this `Span` intersects with another `Span`.
+    /// Checks if this [Span] intersects with another [Span].
     pub fn intersects(&self, other: &Span) -> bool {
         !(self.end < other.start || other.end < self.start)
     }
 
-    /// Checks if this `Span` completely contains another `Span`.
+    /// Checks if this [Span] intersects with another [Span].
+    pub fn intersects(&self, other: &Span) -> bool {
+        !(self.end <= other.start || other.end <= self.start)
+    }
+
+    /// Checks if this [Span] completely contains another [Span].
     pub fn contains(&self, other: &Span) -> bool {
         self.start <= other.start && other.end <= self.end
     }
 
-    /// Checks if this `Span` contains a specific `Point`.
+    /// Checks if this [Span] contains a specific [Point].
     pub fn contains_point(&self, point: &Point) -> bool {
         self.start <= *point && *point <= self.end
     }
 
-    /// Checks if this `Span` starts after the end of another `Span`.
+    /// Checks if this [Span] starts after the end of another [Span].
     pub fn starts_after(&self, other: &Span) -> bool {
         self.start >= other.end
     }
@@ -138,7 +141,7 @@ impl fmt::Display for Span {
     }
 }
 
-/// A generic type that wraps data along with a `Span`, useful for attaching source information to parsed elements.
+/// A generic type that wraps data along with a [Span], useful for attaching source information to parsed elements.
 #[derive(Debug, Clone)]
 pub struct Spanned<T> {
     pub data: T,
@@ -146,11 +149,8 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    /// Creates a new `Spanned` instance with the given data and span.
+    /// Creates a new [Span] instance with the given data and span.
     pub fn new(data: T, span: Span) -> Self {
         Self { data, span }
     }
 }
-
-/// Type alias for a `Span` that has been edited, used for clarity in certain contexts.
-pub type EditedSpan = Span;
