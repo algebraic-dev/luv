@@ -1,9 +1,7 @@
 //! A module for parsing tokens into an concrete syntax tree.
 
 use crate::{
-    lexer::Lexer,
-    span::{Span, Spanned},
-    syntax::{SyntaxBuilder, SyntaxKind, SyntaxNode, Token},
+    errors::Error, lexer::Lexer, span::Span, syntax::{SyntaxBuilder, SyntaxKind, SyntaxNode, Token}
 };
 use std::iter::Peekable;
 
@@ -18,7 +16,7 @@ pub enum Response {
 pub struct Parser<'input> {
     lexer: Peekable<Lexer<'input>>,
     builder: SyntaxBuilder,
-    errors: Vec<Spanned<String>>,
+    errors: Vec<Error>,
     span: Span,
 }
 
@@ -98,7 +96,7 @@ impl<'input> Parser<'input> {
     fn error(&mut self, message: impl Into<String>) {
         let span = self.current_span();
         self.start_node(SyntaxKind::Error);
-        self.errors.push(Spanned::new(message.into(), span));
+        self.errors.push(Error::new(message.into(), span));
         let span = self.current_span();
         self.bump();
         self.finish_node(span);
@@ -114,7 +112,7 @@ impl<'input> Parser<'input> {
                 Response::Ok => (),
                 Response::Eof => {
                     self.errors
-                        .push(Spanned::new("unmatched".into(), start_span.clone()));
+                        .push(Error::new("unmatched", start_span.clone()));
                     self.finish_node(span);
                     break;
                 }
@@ -138,7 +136,7 @@ impl<'input> Parser<'input> {
             }
             _ => {
                 self.errors
-                    .push(Spanned::new("no expression".into(), start_span.clone()));
+                    .push(Error::new("no expression", start_span.clone()));
                 self.finish_node(span);
             }
         }
@@ -163,7 +161,7 @@ impl<'input> Parser<'input> {
             SyntaxKind::Error => {
                 _ = self.bump();
                 self.errors
-                    .push(Spanned::new("unfinished string".to_owned(), span));
+                    .push(Error::new("unfinished string".to_owned(), span));
             }
             k => todo!("{k:?}"),
         }
@@ -171,7 +169,7 @@ impl<'input> Parser<'input> {
     }
 
     /// Parses the entire input stream and returns the resulting CST and any errors encountered.
-    pub fn parse(mut self) -> (SyntaxNode, Vec<Spanned<String>>) {
+    pub fn parse(mut self) -> (SyntaxNode, Vec<Error>) {
         self.start_node(SyntaxKind::Root);
         loop {
             self.skip_whitespace();
@@ -186,7 +184,7 @@ impl<'input> Parser<'input> {
 }
 
 /// Parses a string to a syntax node and a vector of errors.
-pub fn parse(code: &str) -> (SyntaxNode, Vec<Spanned<String>>) {
+pub fn parse(code: &str) -> (SyntaxNode, Vec<Error>) {
     Parser::new(Lexer::new(code)).parse()
 }
 
