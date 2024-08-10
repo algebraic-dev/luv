@@ -1,11 +1,12 @@
 //! This module defines an untyped concrete syntax tree, which stores every piece of data for easy
 //! manipulation with an LSP.
 
-use crate::span::{Span, Spanned};
 use core::fmt;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::slice::Iter;
+
+use crate::span::{Span, Spanned};
 
 /// All the types of syntax that a piece of text can have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -120,34 +121,26 @@ impl SyntaxNode {
         self.tokens().nth(0)
     }
 
+    /// Compare two syntax trees and return the difference between them.
     pub fn compare<'a>(&'a self, other: &'a SyntaxNode, changed: &[Span]) -> Vec<Change<'a>> {
         let mut changes = Vec::new();
-        Self::compare_top_level_nodes(self, other, &mut changes, changed);
-        changes
-    }
 
-    fn compare_top_level_nodes<'a>(
-        a: &'a SyntaxNode,
-        b: &'a SyntaxNode,
-        changes: &mut Vec<Change<'a>>,
-        changed_spans: &[Span],
-    ) {
-        let a_nodes = filter_top_level_children(a).collect::<Vec<_>>();
-        let b_nodes = filter_top_level_children(b).collect::<Vec<_>>();
+        let a_nodes = filter_top_level_children(self).collect::<Vec<_>>();
+        let b_nodes = filter_top_level_children(other).collect::<Vec<_>>();
 
         let mut a_map = HashMap::new();
         let mut b_map = HashMap::new();
 
         for a_node in a_nodes {
-            if is_affected_by_changed(&a_node.span, changed_spans) {
-                let adjusted_span = adjust_span(&a_node.span, changed_spans);
+            if is_affected_by_changed(&a_node.span, changed) {
+                let adjusted_span = adjust_span(&a_node.span, changed);
                 a_map.insert((a_node.hash, adjusted_span.clone()), a_node);
             }
         }
 
         for b_node in b_nodes {
-            if is_affected_by_changed(&b_node.span, changed_spans) {
-                let adjusted_span = adjust_span(&b_node.span, changed_spans);
+            if is_affected_by_changed(&b_node.span, changed) {
+                let adjusted_span = adjust_span(&b_node.span, changed);
                 b_map.insert((b_node.hash, adjusted_span.clone()), b_node);
             }
         }
@@ -163,6 +156,8 @@ impl SyntaxNode {
                 changes.push(Change::Removed(value));
             }
         }
+
+        changes
     }
 }
 
@@ -392,4 +387,128 @@ fn adjust_span(span: &Span, changed_spans: &[Span]) -> Span {
         }
     }
     adjusted_span
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        parser::parse,
+        span::{Point, Span},
+        syntax::Change,
+    };
+
+    #[test]
+    fn test_no_changes() {
+        let input1 = "(a)";
+        let input2 = "(a)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[]);
+        assert!(changes.is_empty());
+    }
+
+    #[test]
+    fn test_added_node() {
+        let input1 = "(a)";
+        let input2 = "(a)(b)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        assert_eq!(changes.len(), 1);
+        matches!(changes[0], Change::Added(_));
+    }
+
+    #[test]
+    fn test_removed_node() {
+        let input1 = "(a)(b)";
+        let input2 = "(a)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        assert_eq!(changes.len(), 1);
+        matches!(changes[0], Change::Removed(_));
+    }
+
+    #[test]
+    fn test_changed_node() {
+        let input1 = "(a)";
+        let input2 = "(b)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
+        assert_eq!(changes.len(), 2);
+
+        assert!(matches!(changes[1], Change::Removed(_)));
+        assert!(matches!(changes[0], Change::Added(_)));
+    }
+
+    #[test]
+    fn test_changed_whitespace() {
+        let input1 = "(a) ";
+        let input2 = "(a)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        assert!(changes.is_empty());
+    }
+
+    #[test]
+    fn test_changed_comment() {
+        let input1 = "(a) ; comment";
+        let input2 = "(a)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 4), Point::new(0, 4))]);
+        assert!(changes.is_empty());
+    }
+
+    #[test]
+    fn test_adjusted_span() {
+        let input1 = "(a)";
+        let input2 = "(a)(b)";
+        let (syn1, errors1) = parse(input1);
+        let (syn2, errors2) = parse(input2);
+
+        assert_eq!(errors1.len(), 0);
+        assert_eq!(errors2.len(), 0);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 0), Point::new(0, 1))]);
+        assert_eq!(changes.len(), 1);
+        matches!(changes[0], Change::Added(_));
+    }
+
+    #[test]
+    fn test_id() {
+        let input1 = "a";
+        let input2 = "ab";
+        let (syn1, _) = parse(input1);
+        let (syn2, _) = parse(input2);
+
+        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
+        assert_eq!(changes.len(), 2);
+    }
 }
