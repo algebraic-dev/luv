@@ -102,7 +102,7 @@ impl Span {
     }
 
     /// Checks if this [Span] intersects with another [Span].
-    pub fn intersects(&self, other: &Span) -> bool {
+    pub fn overlap(&self, other: &Span) -> bool {
         !(self.end < other.start || other.end < self.start)
     }
 
