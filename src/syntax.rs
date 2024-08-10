@@ -28,6 +28,27 @@ pub enum SyntaxKind {
     Root,
 }
 
+impl fmt::Display for SyntaxKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyntaxKind::LPar => write!(f, "lpar"),
+            SyntaxKind::RPar => write!(f, "rpar"),
+            SyntaxKind::Identifier => write!(f, "identifier"),
+            SyntaxKind::Number => write!(f, "number"),
+            SyntaxKind::String => write!(f, "string"),
+            SyntaxKind::Comment => write!(f, "comment"),
+            SyntaxKind::Whitespace => write!(f, "ws"),
+            SyntaxKind::SimpleQuote => write!(f, "simple"),
+            SyntaxKind::Error => write!(f, "error"),
+            SyntaxKind::Eof => write!(f, "eof"),
+            SyntaxKind::List => write!(f, "list"),
+            SyntaxKind::Literal => write!(f, "literal"),
+            SyntaxKind::Quote => write!(f, "quote"),
+            SyntaxKind::Root => write!(f, "root"),
+        }
+    }
+}
+
 /// A token is a piece of text with the classification.
 pub type Token = (SyntaxKind, Spanned<String>);
 
