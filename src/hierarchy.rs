@@ -1,6 +1,9 @@
 //! This module defines the [Hierarchy] structure which manages range-related data.
 
-use crate::{prettytree::{PrettyPrint, Tree}, span::Span};
+use crate::{
+    prettytree::{PrettyPrint, Tree},
+    span::Span,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum HierarchyError {
@@ -29,17 +32,17 @@ pub struct Hierarchy<V> {
     site: Site<V>,
 }
 
-impl<V:PrettyPrint> PrettyPrint for Hierarchy<V> {
+impl<V: PrettyPrint> PrettyPrint for Hierarchy<V> {
     fn to_tree(&self) -> crate::prettytree::Tree {
         let mut children = Tree::label("child");
 
         for child in &self.forest {
-            children = children.add(child.to_tree())
+            children = children.with(child.to_tree())
         }
 
         Tree::label(format!("scope {}", self.site.span))
-            .add(self.site.data.to_tree())
-            .add(children)
+            .with(self.site.data.to_tree())
+            .with(children)
     }
 }
 
@@ -146,7 +149,10 @@ impl<T: Default> HierarchyBuilder<T> {
 
             if !current_range.site.span.contains(&span) {
                 if current_range.site.span.intersects(&span) {
-                    panic!("The new range {} intersects with the current range {}.", span, current_range.site.span);
+                    panic!(
+                        "The new range {} intersects with the current range {}.",
+                        span, current_range.site.span
+                    );
                 }
                 panic!("The new range is not contained within the current range.")
             }

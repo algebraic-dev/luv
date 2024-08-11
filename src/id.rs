@@ -75,10 +75,10 @@ pub enum AnId {
 impl fmt::Debug for AnId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AnId::Evaluated(id) => write!(f, "Evaluated({})",id.value),
-            AnId::Module(id) => write!(f, "Module({})",id.value),
-            AnId::File(id) => write!(f, "File({})",id.value),
-            AnId::Definition(id) => write!(f, "Definition({})",id.value),
+            AnId::Evaluated(id) => write!(f, "Evaluated({})", id.value),
+            AnId::Module(id) => write!(f, "Module({})", id.value),
+            AnId::File(id) => write!(f, "File({})", id.value),
+            AnId::Definition(id) => write!(f, "Definition({})", id.value),
         }
     }
 }

@@ -312,7 +312,7 @@ impl PrettyPrint for SyntaxNode {
         let mut tree = Tree::label(format!("{} {}", self.kind, self.span));
 
         for child in &self.children {
-            tree = tree.add(child.to_tree());
+            tree = tree.with(child.to_tree());
         }
 
         tree

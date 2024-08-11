@@ -4,7 +4,13 @@
 
 use im_rc::HashMap;
 
-use crate::{r#abstract::{Identifier, Params}, hierarchy::HierarchyBuilder, prettytree::{PrettyPrint, Tree}, span::Span, visitor::Visitor};
+use crate::{
+    hierarchy::HierarchyBuilder,
+    prettytree::{PrettyPrint, Tree},
+    r#abstract::{Identifier, Params},
+    span::Span,
+    visitor::Visitor,
+};
 
 /// Represents a scope within the AST analysis.
 #[derive(Default)]
@@ -18,13 +24,12 @@ impl PrettyPrint for Scope {
         let mut children = Tree::label(format!("scope {}", self.vars.len()));
 
         for (k, v) in &self.vars {
-            children = children.add(Tree::label(format!("{}: {}", k, v)))
+            children = children.with(Tree::label(format!("{}: {}", k, v)))
         }
 
         children
     }
 }
-
 
 impl Scope {
     /// Adds a variable to the current scope along with its associated span.
@@ -44,7 +49,7 @@ impl Context {
     /// Creates a new context.
     pub fn new(span: Span) -> Self {
         Self {
-            scopes: HierarchyBuilder::new(span)
+            scopes: HierarchyBuilder::new(span),
         }
     }
 }

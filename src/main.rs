@@ -1,4 +1,4 @@
-use firefly::{r#abstract::TopLevel, analyze, parser::parse, prettytree::PrettyPrint};
+use firefly::{analyze, parser::parse, prettytree::PrettyPrint, r#abstract::TopLevel};
 
 fn main() {
     let (syn, _errs) = parse("(defn ata (x y z) (if a (block (let d 3) (let e 3)) c))");

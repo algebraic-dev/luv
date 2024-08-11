@@ -18,7 +18,7 @@ impl Tree {
     }
 
     /// Adds a child node to the current node and returns the modified node.
-    pub fn add(mut self, child: Tree) -> Self {
+    pub fn with(mut self, child: Tree) -> Self {
         self.child.push(child);
         self
     }

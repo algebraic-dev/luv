@@ -76,7 +76,7 @@ impl Relations {
             }
 
             self.graph.remove_node(node_index);
-        } 
+        }
         for node_id in removed.iter() {
             self.nodes.remove(node_id);
         }
@@ -126,8 +126,8 @@ impl Relations {
 
 #[cfg(test)]
 mod tests {
-    use crate::id::Id;
     use super::*;
+    use crate::id::Id;
 
     #[test]
     fn test_remove_node_and_dependent() {
