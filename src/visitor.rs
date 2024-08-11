@@ -7,8 +7,8 @@ pub trait Visitor<'a>
 where
     Self: Sized,
 {
-    fn visit_let(&mut self, mut let_stmt: Let<'a>) -> Option<()> {
-        let_stmt.walk(self)
+    fn visit_let(&mut self, mut let_expr: Let<'a>) -> Option<()> {
+        let_expr.walk(self)
     }
 
     fn visit_fn(&mut self, mut func: Fn<'a>) -> Option<()> {
@@ -141,8 +141,8 @@ impl<'a> Params<'a> {
 
 impl<'a> Eval<'a> {
     pub fn walk<V: Visitor<'a>>(&mut self, visitor: &mut V) -> Option<()> {
-        if let Ok(stmt) = self.stmt() {
-            stmt.visit(visitor)?;
+        if let Ok(expr) = self.expr() {
+            expr.visit(visitor)?;
         }
 
         Some(())
@@ -151,8 +151,8 @@ impl<'a> Eval<'a> {
 
 impl<'a> SetOption<'a> {
     pub fn walk<V: Visitor<'a>>(&mut self, visitor: &mut V) -> Option<()> {
-        if let Ok(stmt) = self.stmt() {
-            stmt.visit(visitor)?;
+        if let Ok(expr) = self.expr() {
+            expr.visit(visitor)?;
         }
 
         Some(())
@@ -258,16 +258,7 @@ impl<'a> Expr<'a> {
             Expr::Identifier(id) => visitor.visit_identifier(id.clone()),
             Expr::Number(num) => visitor.visit_number(num.clone()),
             Expr::Str(s) => visitor.visit_str(s.clone()),
-        }
-    }
-}
-
-/// Redirects to the appropriate visit method based on the node type.
-impl<'a> Stmt<'a> {
-    pub fn visit<V: Visitor<'a>>(self, visitor: &mut V) -> Option<()> {
-        match self {
-            Stmt::Let(let_stmt) => visitor.visit_let(let_stmt.clone()),
-            Stmt::Expr(expr) => expr.visit(visitor),
+            Expr::Let(s) => visitor.visit_let(s.clone()),
         }
     }
 }

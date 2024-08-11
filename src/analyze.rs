@@ -7,7 +7,7 @@ use im_rc::HashMap;
 use crate::{
     hierarchy::HierarchyBuilder,
     prettytree::{PrettyPrint, Tree},
-    r#abstract::{Identifier, Params},
+    r#abstract::Params,
     span::Span,
     visitor::Visitor,
 };
@@ -55,14 +55,6 @@ impl Context {
 }
 
 impl<'a> Visitor<'a> for Context {
-    fn visit_identifier(&mut self, id: Identifier<'a>) -> Option<()> {
-        let txt = id.text().unwrap();
-
-        println!("Text: {}", txt);
-
-        Some(())
-    }
-
     fn visit_params(&mut self, mut s: Params<'a>) -> Option<()> {
         while let Ok(Some(name)) = s.name() {
             let text = name.text().unwrap();

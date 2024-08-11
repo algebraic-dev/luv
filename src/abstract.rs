@@ -264,9 +264,9 @@ impl<'a> Def<'a> {
     }
 
     /// Retrieves the value of the definition, if available.
-    pub fn value(&mut self) -> Result<Stmt<'a>> {
+    pub fn value(&mut self) -> Result<Expr<'a>> {
         let name_node = self.0.next_with_error("expected value of the definition")?;
-        Stmt::from_node(name_node)
+        Expr::from_node(name_node)
     }
 }
 
@@ -307,8 +307,8 @@ impl<'a> Defn<'a> {
 
     /// Retrieves the body of the function definition.
     /// Returns an error if the body is not found.
-    pub fn body(&mut self) -> Result<Option<Stmt<'a>>> {
-        self.0.retrieve_optional(Stmt::from_node)
+    pub fn body(&mut self) -> Result<Option<Expr<'a>>> {
+        self.0.retrieve_optional(Expr::from_node)
     }
 }
 
@@ -329,9 +329,9 @@ impl<'a> Eval<'a> {
     }
 
     /// Retrieves the statement from the `Eval` node.
-    pub fn stmt(&mut self) -> Result<Stmt<'a>> {
+    pub fn expr(&mut self) -> Result<Expr<'a>> {
         let node = self.0.next_with_error("expected statement")?;
-        Stmt::from_node(node)
+        Expr::from_node(node)
     }
 }
 
@@ -353,9 +353,9 @@ impl<'a> SetOption<'a> {
     }
 
     /// Retrieves the statement from the `SetOption` node.
-    pub fn stmt(&mut self) -> Result<Stmt<'a>> {
-        let stmt_node = self.0.next_with_error("expected statement")?;
-        Stmt::from_node(stmt_node)
+    pub fn expr(&mut self) -> Result<Expr<'a>> {
+        let expr_node = self.0.next_with_error("expected statement")?;
+        Expr::from_node(expr_node)
     }
 }
 
@@ -455,8 +455,8 @@ impl<'a> Block<'a> {
     }
 
     /// Retrieves the body of the block.
-    pub fn body(&mut self) -> Result<Option<Stmt<'a>>> {
-        self.0.retrieve_optional(Stmt::from_node)
+    pub fn body(&mut self) -> Result<Option<Expr<'a>>> {
+        self.0.retrieve_optional(Expr::from_node)
     }
 }
 
@@ -483,8 +483,8 @@ impl<'a> Fn<'a> {
     }
 
     /// Retrieves the body of the function.
-    pub fn body(&mut self) -> Result<Option<Stmt<'a>>> {
-        self.0.retrieve_optional(Stmt::from_node)
+    pub fn body(&mut self) -> Result<Option<Expr<'a>>> {
+        self.0.retrieve_optional(Expr::from_node)
     }
 }
 
@@ -522,6 +522,7 @@ pub enum Expr<'a> {
     Identifier(Identifier<'a>),
     Number(Number<'a>),
     Str(Str<'a>),
+    Let(Let<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -545,6 +546,7 @@ impl<'a> Expr<'a> {
             "if" => Ok(Expr::If(If::from_list(list))),
             "fn" => Ok(Expr::Fn(Fn::from_list(list))),
             "block" => Ok(Expr::Block(Block::from_list(list))),
+            "let" => Ok(Expr::Let(Let::from_list(list))),
             _ => {
                 list.reset();
                 Ok(Expr::App(App::from_list(list)))
@@ -574,35 +576,5 @@ impl<'a> Let<'a> {
     pub fn value(&mut self) -> Result<Expr<'a>> {
         let value_node = self.0.next_with_error("expected value expression")?;
         Expr::from_node(value_node)
-    }
-}
-
-/// Represents a statement in the syntax.
-#[derive(Debug)]
-pub enum Stmt<'a> {
-    Let(Let<'a>),
-    Expr(Expr<'a>),
-}
-
-impl<'a> Stmt<'a> {
-    /// Creates a `Stmt` variant from a `SyntaxNode`.
-    pub fn from_node(syn: &'a SyntaxNode) -> Result<Self> {
-        match syn.kind {
-            SyntaxKind::Identifier
-            | SyntaxKind::Number
-            | SyntaxKind::String
-            | SyntaxKind::Quote => return Ok(Stmt::Expr(Expr::from_node(syn)?)),
-            _ => (),
-        };
-
-        let mut list = NodeList::from_node(syn)?;
-        let syn_node = list.next_with_error("expected a statement type")?;
-        let kw = Identifier::from_node(syn_node)?;
-        let text = kw.text()?;
-
-        match text {
-            "let" => Ok(Stmt::Let(Let::from_list(list))),
-            _ => Ok(Stmt::Expr(Expr::from_node(list.1)?)),
-        }
     }
 }
