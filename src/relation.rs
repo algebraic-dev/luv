@@ -70,7 +70,6 @@ impl Relations {
                 .collect();
 
             for &successor in &successors {
-                println!("depends_on {}", self.depends_on(successor).count());
                 if self.depends_on(successor).count() == 1 {
                     to_remove.push_back(successor);
                 }

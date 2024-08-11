@@ -1,6 +1,6 @@
 //! This module defines the [Hierarchy] structure which manages range-related data.
 
-use crate::span::Span;
+use crate::{prettytree::{PrettyPrint, Tree}, span::Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum HierarchyError {
@@ -27,6 +27,20 @@ impl<V> Site<V> {
 pub struct Hierarchy<V> {
     forest: Vec<Hierarchy<V>>,
     site: Site<V>,
+}
+
+impl<V:PrettyPrint> PrettyPrint for Hierarchy<V> {
+    fn to_tree(&self) -> crate::prettytree::Tree {
+        let mut children = Tree::label("child");
+
+        for child in &self.forest {
+            children = children.add(child.to_tree())
+        }
+
+        Tree::label(format!("scope {}", self.site.span))
+            .add(self.site.data.to_tree())
+            .add(children)
+    }
 }
 
 impl<V> Hierarchy<V> {
@@ -111,11 +125,12 @@ impl<V> Hierarchy<V> {
 }
 
 /// A builder for constructing a `RangeMap` with nested ranges.
-pub struct RangeMapBuilder<T> {
+#[derive(Default)]
+pub struct HierarchyBuilder<T> {
     data: Vec<Hierarchy<T>>,
 }
 
-impl<T: Default> RangeMapBuilder<T> {
+impl<T: Default> HierarchyBuilder<T> {
     /// Creates a new `RangeMapBuilder` with an initial `RangeMap` covering the given `span`.
     pub fn new(span: Span) -> Self {
         Self {
@@ -126,15 +141,15 @@ impl<T: Default> RangeMapBuilder<T> {
     /// Opens a new range within the current range, given the `span`.
     /// Panics if the new range intersects or is not contained within the current range.
     pub fn open(&mut self, span: Span) {
-        let current_range = self.data.last_mut().expect("No current range found");
+        if self.data.last().is_some() {
+            let current_range = self.data.last_mut().expect("No current range found");
 
-        if current_range.site.span == span {
-            panic!("The new range cannot be the same as the current range.");
-        } else if !current_range.site.span.contains(&span) {
-            if current_range.site.span.intersects(&span) {
-                panic!("The new range intersects with the current range.");
+            if !current_range.site.span.contains(&span) {
+                if current_range.site.span.intersects(&span) {
+                    panic!("The new range {} intersects with the current range {}.", span, current_range.site.span);
+                }
+                panic!("The new range is not contained within the current range.")
             }
-            panic!("The new range is not contained within the current range.")
         }
 
         self.data.push(Hierarchy::new(span, Default::default()));
@@ -148,9 +163,11 @@ impl<T: Default> RangeMapBuilder<T> {
     /// Closes the most recently opened range and merges it into the parent range.
     /// Panics if there are no ranges to close.
     pub fn close(&mut self) {
-        let last_range = self.data.pop().expect("No range to close");
-        let parent_range = self.data.last_mut().expect("No parent range found");
-        parent_range.forest.push(last_range);
+        if self.data.len() > 1 {
+            let last_range = self.data.pop().expect("No range to close");
+            let parent_range = self.data.last_mut().expect("No parent range found");
+            parent_range.forest.push(last_range);
+        }
     }
 
     /// Completes the range building process and returns the final `RangeMap`.
@@ -225,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_open_range() {
-        let mut builder: RangeMapBuilder<&str> = RangeMapBuilder::new(span(0, 0, 10, 10));
+        let mut builder: HierarchyBuilder<&str> = HierarchyBuilder::new(span(0, 0, 10, 10));
 
         builder.open(span(1, 1, 5, 5));
         let data = builder.get();
@@ -239,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_get_data() {
-        let mut builder = RangeMapBuilder::new(span(0, 0, 10, 10));
+        let mut builder = HierarchyBuilder::new(span(0, 0, 10, 10));
 
         *builder.get() = "Siteata";
 

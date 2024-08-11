@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::slice::Iter;
 
+use crate::prettytree::{PrettyPrint, Tree};
 use crate::span::{Span, Spanned};
 
 /// All the types of syntax that a piece of text can have.
@@ -300,83 +301,48 @@ impl SyntaxBuilder {
     }
 
     /// Completes the building process and returns the constructed green node.
-    pub fn finish(mut self) -> SyntaxNode {
+    pub fn finish(mut self, end_span: Span) -> SyntaxNode {
         let (kind, children, span) = self.stack.pop().expect("No root node to finish");
-        SyntaxNode::new(kind, children, span)
+        SyntaxNode::new(kind, children, span.merge(end_span))
     }
 }
 
-trait PrettyPrint {
-    fn pretty_print(&self, f: &mut fmt::Formatter, prefix: &str, is_last: bool) -> fmt::Result;
-}
-
-const BOLD: &str = "";
-const DIM: &str = "";
-const RESET: &str = "";
-
 impl PrettyPrint for SyntaxNode {
-    fn pretty_print(&self, f: &mut fmt::Formatter, prefix: &str, is_last: bool) -> fmt::Result {
-        let connector = if is_last { "└── " } else { "├── " };
-        writeln!(
-            f,
-            "{}{}{}{:?} {} {}",
-            prefix, connector, BOLD, self.kind, self.span, RESET
-        )?;
+    fn to_tree(&self) -> Tree {
+        let mut tree = Tree::label(format!("{} {}", self.kind, self.span));
 
-        let new_prefix = if is_last {
-            prefix.to_string() + "    "
-        } else {
-            prefix.to_string() + "│   "
-        };
-
-        let mut children = self.children.iter().peekable();
-        while let Some(child) = children.next() {
-            let is_last_child = children.peek().is_none();
-            match child {
-                SyntaxElement::Node(node) => {
-                    node.pretty_print(f, &new_prefix, is_last_child).unwrap();
-                }
-                SyntaxElement::Token(token) => {
-                    let token_connector = if is_last_child {
-                        "└── "
-                    } else {
-                        "├── "
-                    };
-                    writeln!(
-                        f,
-                        "{}{}{}{:?} {:?} {} {}",
-                        new_prefix, token_connector, DIM, token.kind, token.text, token.span, RESET
-                    )?;
-                }
-            }
+        for child in &self.children {
+            tree = tree.add(child.to_tree());
         }
-        Ok(())
+
+        tree
     }
 }
 
 impl PrettyPrint for SyntaxToken {
-    fn pretty_print(&self, f: &mut fmt::Formatter, prefix: &str, is_last: bool) -> fmt::Result {
-        let connector = if is_last { "└── " } else { "├── " };
-        writeln!(
-            f,
-            "{}{}Token({:?}, \"{}\")",
-            prefix, connector, self.kind, self.text
-        )
+    fn to_tree(&self) -> Tree {
+        Tree::label(format!("{} {:?} {}", self.kind, self.text, self.span))
+    }
+}
+
+impl PrettyPrint for SyntaxElement {
+    fn to_tree(&self) -> Tree {
+        match self {
+            SyntaxElement::Node(node) => node.to_tree(),
+            SyntaxElement::Token(node) => node.to_tree(),
+        }
     }
 }
 
 impl fmt::Display for SyntaxNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, "", true)
+        writeln!(f, "{}", self.to_tree())
     }
 }
 
 impl fmt::Display for SyntaxElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SyntaxElement::Node(tkn) => tkn.pretty_print(f, "", true),
-            SyntaxElement::Token(tkn) => tkn.pretty_print(f, "", true),
-        }
+        writeln!(f, "{}", self.to_tree())
     }
 }
 

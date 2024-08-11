@@ -8,3 +8,7 @@ pub mod span;
 pub mod storage;
 pub mod syntax;
 pub mod relation;
+pub mod analyze;
+pub mod env;
+pub mod visitor;
+pub mod prettytree;

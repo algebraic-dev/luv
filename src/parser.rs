@@ -178,7 +178,7 @@ impl<'input> Parser<'input> {
                 Some(_) => self.error("Expected (".to_string()),
             }
         }
-        (self.builder.finish(), self.errors)
+        (self.builder.finish(self.span.clone()), self.errors)
     }
 }
 

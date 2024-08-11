@@ -10,6 +10,8 @@ type Result<T> = std::result::Result<T, Error>;
 macro_rules! def_token {
     ($name:ident, $method:ident, $kind:expr) => {
         /// Represents a token.
+
+        #[derive(Clone, Debug)]
         pub struct $name<'a>(&'a SyntaxNode);
 
         impl<'a> $name<'a> {
@@ -116,6 +118,8 @@ def_token!(Number, number, SyntaxKind::Number);
 def_token!(Str, string, SyntaxKind::String);
 
 /// Represents a list of syntax nodes.
+
+#[derive(Clone, Debug)]
 pub struct NodeList<'a>(usize, &'a SyntaxNode);
 
 impl<'a> NodeList<'a> {
@@ -180,6 +184,8 @@ impl<'a> NodeList<'a> {
 }
 
 /// Represents a quoted syntax node.
+
+#[derive(Clone, Debug)]
 pub struct Quote<'a>(&'a SyntaxNode);
 
 impl<'a> Quote<'a> {
@@ -208,6 +214,8 @@ impl<'a> Quote<'a> {
 }
 
 /// Represents the parameters of a function.
+
+#[derive(Clone, Debug)]
 pub struct Params<'a>(NodeList<'a>);
 
 impl<'a> Params<'a> {
@@ -218,7 +226,7 @@ impl<'a> Params<'a> {
     }
 
     /// Retrieves the function name from the parameters.
-    pub fn name(&'a mut self) -> Result<Option<Identifier<'a>>> {
+    pub fn name(&mut self) -> Result<Option<Identifier<'a>>> {
         if let Some(res) = self.0.bump() {
             let id = Identifier::from_node(res)?;
             Ok(Some(id))
@@ -229,6 +237,7 @@ impl<'a> Params<'a> {
 }
 
 /// Represents a function definition.
+#[derive(Clone, Debug)]
 pub struct Def<'a>(NodeList<'a>);
 
 impl<'a> Def<'a> {
@@ -262,6 +271,8 @@ impl<'a> Def<'a> {
 }
 
 /// Represents a function definition.
+
+#[derive(Clone, Debug)]
 pub struct Defn<'a>(NodeList<'a>);
 
 impl<'a> Defn<'a> {
@@ -302,6 +313,8 @@ impl<'a> Defn<'a> {
 }
 
 /// Represents an `eval` statement.
+
+#[derive(Clone, Debug)]
 pub struct Eval<'a>(NodeList<'a>);
 
 impl<'a> Eval<'a> {
@@ -323,6 +336,8 @@ impl<'a> Eval<'a> {
 }
 
 /// Represents a `set-option` statement.
+
+#[derive(Clone, Debug)]
 pub struct SetOption<'a>(NodeList<'a>);
 
 impl<'a> SetOption<'a> {
@@ -345,6 +360,8 @@ impl<'a> SetOption<'a> {
 }
 
 /// Represents a `require` statement.
+
+#[derive(Clone, Debug)]
 pub struct Require<'a>(NodeList<'a>);
 
 impl<'a> Require<'a> {
@@ -392,6 +409,8 @@ impl<'a> TopLevel<'a> {
 }
 
 /// Represents an `if` expression.
+
+#[derive(Clone, Debug)]
 pub struct If<'a>(NodeList<'a>);
 
 impl<'a> If<'a> {
@@ -420,6 +439,8 @@ impl<'a> If<'a> {
 }
 
 /// Represents a block of statements.
+
+#[derive(Clone, Debug)]
 pub struct Block<'a>(NodeList<'a>);
 
 impl<'a> Block<'a> {
@@ -440,6 +461,8 @@ impl<'a> Block<'a> {
 }
 
 /// Represents a function definition.
+
+#[derive(Clone, Debug)]
 pub struct Fn<'a>(NodeList<'a>);
 
 impl<'a> Fn<'a> {
@@ -466,6 +489,8 @@ impl<'a> Fn<'a> {
 }
 
 /// Represents a function application.
+
+#[derive(Clone, Debug)]
 pub struct App<'a>(NodeList<'a>);
 
 impl<'a> App<'a> {
@@ -487,6 +512,7 @@ impl<'a> App<'a> {
 }
 
 /// Represents various types of expressions in the syntax.
+#[derive(Debug)]
 pub enum Expr<'a> {
     If(If<'a>),
     Fn(Fn<'a>),
@@ -528,6 +554,8 @@ impl<'a> Expr<'a> {
 }
 
 /// Represents a `let` statement.
+
+#[derive(Clone, Debug)]
 pub struct Let<'a>(NodeList<'a>);
 
 impl<'a> Let<'a> {
@@ -550,6 +578,7 @@ impl<'a> Let<'a> {
 }
 
 /// Represents a statement in the syntax.
+#[derive(Debug)]
 pub enum Stmt<'a> {
     Let(Let<'a>),
     Expr(Expr<'a>),
