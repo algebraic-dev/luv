@@ -647,9 +647,7 @@ impl SyntaxNode {
                         }
                     }
                 }
-                TopLevel::Eval(eval) => {
-                    return Some(Name::Eval(eval.0.1.hash))
-                }
+                TopLevel::Eval(eval) => return Some(Name::Eval(eval.0 .1.hash)),
                 TopLevel::SetOption(_) => todo!(),
             };
         }

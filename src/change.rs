@@ -57,7 +57,6 @@ impl<'a, K: Hash + Eq + Clone, V> ChangeMap<'a, K, V> {
     }
 }
 
-
 /// Map for checking for duplicated stuff
 #[derive(Default)]
 pub struct DuplicateMap<'a, K, V> {
@@ -77,7 +76,8 @@ impl<'a, K: Hash + Eq + Clone, V> DuplicateMap<'a, K, V> {
 
     /// Returns an iterator over all keys with duplicates.
     pub fn iter_keys_with_duplicates(&self) -> impl Iterator<Item = &K> {
-        self.map.iter()
+        self.map
+            .iter()
             .filter_map(|(key, values)| if values.len() > 1 { Some(key) } else { None })
     }
 

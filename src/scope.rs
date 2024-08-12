@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::{prettytree::{PrettyPrint, Tree}, span::Span};
+use crate::{
+    prettytree::{PrettyPrint, Tree},
+    span::Span,
+};
 
 /// Represents a scope within the AST analysis.
 #[derive(Default)]

@@ -2,10 +2,14 @@
 //! provides structures and implementations to manage scopes and context while visiting  the nodes
 //! of the AST, allowing for the organization of variable information and spans.
 
-use std::{collections::HashMap, hash::Hash};
 
 use crate::{
-    r#abstract::{Name, NodeList, Params}, errors::Error, hierarchy::HierarchyBuilder, scope::Scope, span::Span, syntax::SyntaxNode, visitor::Visitor
+    errors::Error,
+    hierarchy::HierarchyBuilder,
+    r#abstract::{NodeList, Params},
+    scope::Scope,
+    span::Span,
+    visitor::Visitor,
 };
 
 macro_rules! visit_opt {
@@ -55,10 +59,8 @@ impl Context {
 
     pub fn drain(&mut self, mut data: NodeList) -> Option<()> {
         while let Some(syn) = data.bump() {
-            self.errors.push(Error::new(
-                "useless argument, remove it.",
-                syn.span.clone()
-            ))
+            self.errors
+                .push(Error::new("useless argument, remove it.", syn.span.clone()))
         }
 
         Some(())

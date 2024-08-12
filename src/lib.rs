@@ -1,5 +1,6 @@
 pub mod r#abstract;
 pub mod analyze;
+pub mod change;
 pub mod env;
 pub mod errors;
 pub mod hierarchy;
@@ -8,9 +9,8 @@ pub mod lexer;
 pub mod parser;
 pub mod prettytree;
 pub mod relation;
+pub mod scope;
 pub mod span;
 pub mod storage;
 pub mod syntax;
 pub mod visitor;
-pub mod scope;
-pub mod change;

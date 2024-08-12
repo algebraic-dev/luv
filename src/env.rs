@@ -3,9 +3,9 @@
 use crate::{hierarchy::Hierarchy, id, scope::Scope, storage::Storage};
 
 pub struct Definition {
-    scope: Hierarchy<Scope>
+    scope: Hierarchy<Scope>,
 }
 
 pub struct Env {
-    definitions: Storage<id::Definition, Definition>
+    definitions: Storage<id::Definition, Definition>,
 }

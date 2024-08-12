@@ -145,7 +145,11 @@ impl SyntaxNode {
     }
 
     /// Compare two syntax trees and return the difference between them.
-    pub fn compare_hashes<'a>(&'a self, other: &'a SyntaxNode, changed: &[Span]) -> Vec<Change<'a>> {
+    pub fn compare_hashes<'a>(
+        &'a self,
+        other: &'a SyntaxNode,
+        changed: &[Span],
+    ) -> Vec<Change<'a>> {
         let mut changes = Vec::new();
 
         let a_nodes = filter_top_level_children(self).collect::<Vec<_>>();

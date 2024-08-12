@@ -1,5 +1,8 @@
 use firefly::{
-    change::ChangeMap, parser::parse, span::{Point, Span}, syntax::Change
+    change::ChangeMap,
+    parser::parse,
+    span::{Point, Span},
+    syntax::Change,
 };
 
 fn main() {
@@ -26,7 +29,7 @@ fn main() {
     for change in diff {
         match change {
             Change::Added(node) => change_map.add(node.toplevel_info(), node),
-            Change::Removed(node) =>change_map.remove(node.toplevel_info(), node),
+            Change::Removed(node) => change_map.remove(node.toplevel_info(), node),
         }
     }
 
