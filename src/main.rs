@@ -1,39 +1,58 @@
+use std::fs::File;
+
 use firefly::{
-    change::ChangeMap,
+    change,
+    env::Env,
     parser::parse,
-    span::{Point, Span},
-    syntax::Change,
+    prettytree::PrettyPrint,
+    span::{Edit, Point, Span},
 };
 
 fn main() {
-    let (syn1, _errs1) = parse(
-        "
-        (defn a (x y) (+ x y))
-        (defn b (x y) (+ x y))
-        (defn c (x y) (+ x y))
-    ",
-    );
+    let mut env = Env::new();
+    let file_id = env.add_file("".to_owned());
 
-    let (syn2, _errs1) = parse(
-        "
-        (defn a (x y) (+ z x y))
-        (defn d (x y) (+ x y))
-        (defn b (x y) (+ x y))
-    ",
-    );
+    let edits = [
+        Edit::new(
+            "(def c a)(def d (+ e a))(def e (+ c d))".to_string(),
+            Span::new(Point::new(0, 0), Point::new(0, 0)),
+        ),
+        Edit::new(
+            "(def g (+ e a))(def g (+ e a))".to_string(),
+            Span::new(Point::new(0, 9), Point::new(0, 24)),
+        ),
+        Edit::new(
+            "".to_string(),
+            Span::new(Point::new(0, 9), Point::new(0, 24)),
+        ),
+    ];
 
-    let diff = syn1.compare_hashes(&syn2, &[Span::new(Point::new(2, 0), Point::new(2, 20))]);
+    for edit in edits {
+        let edits = &[edit];
 
-    let mut change_map = ChangeMap::default();
+        println!("\n---");
+        env.modify_file(file_id, edits);
 
-    for change in diff {
-        match change {
-            Change::Added(node) => change_map.add(node.toplevel_info(), node),
-            Change::Removed(node) => change_map.remove(node.toplevel_info(), node),
+        let file = env.file_storage.get(&file_id).unwrap().source.clone();
+        println!("input: {}", file);
+
+        let res = env.compare_file(file_id).unwrap();
+
+
+        println!("changes: {:?}", res);
+        for change in res {
+            if let firefly::id::AnId::Definition(def) = change {
+                env.recompute(def);
+            }
         }
-    }
 
-    println!("changed {}", change_map.iter_changed().count());
-    println!("added {}", change_map.iter_unchanged_added().count());
-    println!("removed {}", change_map.iter_unchanged_removed().count());
+        let errs = env.errors(file_id).unwrap();
+
+        println!("\nerrors: {}", errs.len());
+        for err in errs {
+            println!("err: {}", err.message);
+        }
+
+
+    }
 }

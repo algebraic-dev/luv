@@ -23,6 +23,11 @@ impl Tree {
         self
     }
 
+    pub fn add<T: PrettyPrint>(mut self, child: &[T]) -> Self {
+        self.child = child.into_iter().map(|x| x.to_tree()).collect();
+        self
+    }
+
     /// Helper method to recursively format the tree structure with indentation.
     fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: &str, last: bool) -> fmt::Result {
         writeln!(

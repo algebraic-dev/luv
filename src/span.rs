@@ -60,6 +60,17 @@ impl Point {
         }
         offset
     }
+
+    /// Computes the last position of the text.
+    pub fn last_pos(text: &str) -> Point {
+        let mut point = Point::new(0, 0);
+
+        for char in text.chars() {
+            point.advance(char);
+        }
+
+        point
+    }
 }
 
 impl PartialOrd for Point {
@@ -154,3 +165,58 @@ impl<T> Spanned<T> {
         Self { data, span }
     }
 }
+
+pub struct Diff {
+    pub start_line: i64,
+    pub start_column: i64,
+    pub end_line: i64,
+    pub end_column: i64,
+}
+
+impl Span {
+    /// Calculates the diff between the original span and the new replacement text.
+    pub fn calculate_diff(&self, replacement: &str) -> Diff {
+        // Calculate the number of lines and columns in the original span
+        let original_line_count = self.end.line - self.start.line;
+        let original_last_line_len = if original_line_count == 0 {
+            self.end.column - self.start.column
+        } else {
+            self.end.column
+        };
+
+        // Calculate the number of lines and columns in the replacement text
+        let replacement_lines: Vec<&str> = replacement.lines().collect();
+        let replacement_line_count = replacement_lines.len() - 1;
+        let replacement_last_line_len = if replacement_line_count == 0 {
+            replacement.chars().count() - self.start.column
+        } else {
+            replacement_lines.last().unwrap().chars().count()
+        };
+
+        // Calculate the diff
+        Diff {
+            start_line: self.start.line as i64,
+            start_column: self.start.column as i64,
+            end_line: replacement_line_count as i64 - original_line_count as i64,
+            end_column: replacement_last_line_len as i64 - original_last_line_len as i64,
+        }
+    }
+
+    /// Applies a diff to a span to return the adjusted span.
+    pub fn apply_diff(&self, diff: &Diff) -> Span {
+        Span {
+            start: self.start.clone(),
+            end: Point {
+                line: (self.end.line as i64 + diff.end_line) as usize,
+                column: if diff.end_line == 0 {
+                    (self.end.column as i64 + diff.end_column) as usize
+                } else {
+                    diff.end_column as usize
+                },
+            },
+        }
+    }
+}
+
+/// An edition
+pub type Edit = Spanned<String>;

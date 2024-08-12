@@ -4,12 +4,7 @@
 
 
 use crate::{
-    errors::Error,
-    hierarchy::HierarchyBuilder,
-    r#abstract::{NodeList, Params},
-    scope::Scope,
-    span::Span,
-    visitor::Visitor,
+    r#abstract::{NodeList, Params, TopLevel}, errors::Error, hierarchy::HierarchyBuilder, scope::Scope, span::{Span, Spanned}, syntax::SyntaxNode, visitor::Visitor
 };
 
 macro_rules! visit_opt {
@@ -30,20 +25,24 @@ macro_rules! while_some {
 
 /// Represents the context during AST analysis.
 #[derive(Default)]
-pub struct Context {
+pub struct Analysis {
     /// A builder for managing the hierarchical structure of scopes.
     pub scopes: HierarchyBuilder<Scope>,
 
     /// Accumulator of errors.
     pub errors: Vec<Error>,
+
+    /// Unbounded names.
+    pub unbound: Vec<Spanned<String>>,
 }
 
-impl Context {
+impl Analysis {
     /// Creates a new context
     pub fn new(span: Span) -> Self {
         Self {
             scopes: HierarchyBuilder::new(span),
             errors: Vec::default(),
+            unbound: Vec::new(),
         }
     }
 
@@ -67,7 +66,7 @@ impl Context {
     }
 }
 
-impl<'a> Visitor<'a> for Context {
+impl<'a> Visitor<'a> for Analysis {
     fn visit_params(&mut self, mut s: Params<'a>) -> Option<()> {
         while let Ok(Some(name)) = s.name() {
             let text = name.text().unwrap();
@@ -79,10 +78,7 @@ impl<'a> Visitor<'a> for Context {
     }
 
     fn visit_defn(&mut self, mut defn: crate::r#abstract::Defn<'a>) -> Option<()> {
-        if let Ok(params) = defn.name() {
-            self.visit_identifier(params);
-        }
-
+        self.register_error(defn.name());
         self.scopes.open(defn.span());
         visit_opt!(self, defn, parameters, self.visit_params(parameters));
         while_some!(self, defn, body, body.visit(self));
@@ -127,6 +123,7 @@ impl<'a> Visitor<'a> for Context {
     }
 
     fn visit_def(&mut self, mut def: crate::r#abstract::Def<'a>) -> Option<()> {
+        self.register_error(def.name());
         self.scopes.open(def.span());
         visit_opt!(self, def, value, value.visit(self));
         self.scopes.close();
@@ -158,7 +155,13 @@ impl<'a> Visitor<'a> for Context {
         Some(())
     }
 
-    fn visit_identifier(&mut self, _id: crate::r#abstract::Identifier<'a>) -> Option<()> {
+    fn visit_identifier(&mut self, id: crate::r#abstract::Identifier<'a>) -> Option<()> {
+        if let Some(text) = self.register_error(id.text()) {
+            if self.scopes.last().find(text, &id.span()).is_none() {
+                self.unbound.push(Spanned::new(text.to_owned(), id.span()))
+            }
+        }
+
         Some(())
     }
 
@@ -169,4 +172,14 @@ impl<'a> Visitor<'a> for Context {
     fn visit_str(&mut self, _s: crate::r#abstract::Str<'a>) -> Option<()> {
         Some(())
     }
+}
+
+pub fn analyze<'a>(syn: &'a SyntaxNode) -> Analysis {
+    let mut analysis = Analysis::default();
+
+    if let Some(top) = analysis.register_error(TopLevel::from_node(syn)) {
+        top.visit(&mut analysis);
+    }
+
+    analysis
 }

@@ -14,9 +14,10 @@ pub enum HierarchyError {
 }
 
 /// Represents a site with an associated span and data.
+#[derive(Debug)]
 pub struct Site<V> {
-    span: Span,
-    data: V,
+    pub span: Span,
+    pub data: V,
 }
 
 impl<V> Site<V> {
@@ -27,9 +28,10 @@ impl<V> Site<V> {
 }
 
 /// Manages a collection of sites.
+#[derive(Debug)]
 pub struct Hierarchy<V> {
-    forest: Vec<Hierarchy<V>>,
-    site: Site<V>,
+    pub forest: Vec<Hierarchy<V>>,
+    pub site: Site<V>,
 }
 
 impl<V: PrettyPrint> PrettyPrint for Hierarchy<V> {
@@ -139,6 +141,10 @@ impl<T: Default> HierarchyBuilder<T> {
         Self {
             data: vec![Hierarchy::new(span, Default::default())],
         }
+    }
+
+    pub fn last(&mut self) -> &mut Hierarchy<T> {
+        self.data.last_mut().unwrap()
     }
 
     /// Opens a new range within the current range, given the `span`.

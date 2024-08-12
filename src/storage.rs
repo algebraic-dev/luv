@@ -9,11 +9,12 @@ use std::marker::PhantomData;
 ///
 /// This generic storage allows entities to be stored, retrieved, and managed using unique IDs.
 /// The [TypeKind] trait ensures that only certain types can be used as identifiers.
+#[derive(Debug)]
 pub struct Storage<I: TypeKind, T> {
-    data: Vec<Option<T>>,
-    reuse: Vec<u64>,
-    marker: PhantomData<I>,
-    counter: u64,
+    pub data: Vec<Option<T>>,
+    pub reuse: Vec<u64>,
+    pub marker: PhantomData<I>,
+    pub counter: u64,
 }
 
 impl<I: TypeKind, T> Default for Storage<I, T> {

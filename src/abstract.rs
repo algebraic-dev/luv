@@ -615,7 +615,6 @@ impl<'a> Let<'a> {
 /// Name of a function
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Name {
-    Defn(String),
     Def(String),
     Require(String),
     Eval(u64),
@@ -636,7 +635,7 @@ impl SyntaxNode {
                 TopLevel::Defn(mut def) => {
                     if let Ok(id) = def.name() {
                         if let Ok(name) = id.text() {
-                            return Some(Name::Defn(name.to_owned()));
+                            return Some(Name::Def(name.to_owned()));
                         }
                     }
                 }

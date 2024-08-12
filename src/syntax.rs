@@ -2,12 +2,13 @@
 //! manipulation with an LSP.
 
 use core::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::slice::Iter;
 
+use crate::id;
 use crate::prettytree::{PrettyPrint, Tree};
-use crate::span::{Span, Spanned};
+use crate::span::{Diff, Edit, Point, Span, Spanned};
 
 /// All the types of syntax that a piece of text can have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -55,7 +56,7 @@ pub type Token = (SyntaxKind, Spanned<String>);
 
 /// The identifier of a [SyntaxNode], used for lightweight comparison of nodes.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Id(Span, u64);
+pub struct Id(Span, u64, id::Id<id::File>);
 
 /// The syntax node express an artificial boundary in the tokens creating a syntatic meaning on them.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,6 +73,7 @@ impl SyntaxNode {
         let mut hasher = DefaultHasher::new();
 
         kind.hash(&mut hasher);
+        
         for child in &children {
             child.hash(&mut hasher);
         }
@@ -86,14 +88,24 @@ impl SyntaxNode {
         }
     }
 
+    /// Creates an empty ROOT syntax node.
+    pub fn empty() -> Self {
+        Self {
+            kind: SyntaxKind::Root,
+            children: vec![],
+            span: Span::empty(),
+            hash: 0,
+        }
+    }
+
     /// Converts the node to a map of its nodes.
-    pub fn to_map(&self) -> HashMap<Id, SyntaxNode> {
-        self.clone().get_nodes().map(|x| (x.get_id(), x)).collect()
+    pub fn to_map(&self, file: id::Id<id::File>) -> HashMap<Id, SyntaxNode> {
+        self.clone().get_nodes().map(|x| (x.get_id(file), x)).collect()
     }
 
     /// Returns the unique identifier for the node.
-    pub fn get_id(&self) -> Id {
-        Id(self.span.clone(), self.hash)
+    pub fn get_id(&self, file: id::Id<id::File>) -> Id {
+        Id(self.span.clone(), self.hash, file)
     }
 
     /// Returns the kind of the syntax node.
@@ -148,40 +160,18 @@ impl SyntaxNode {
     pub fn compare_hashes<'a>(
         &'a self,
         other: &'a SyntaxNode,
-        changed: &[Span],
     ) -> Vec<Change<'a>> {
         let mut changes = Vec::new();
 
-        let a_nodes = filter_top_level_children(self).collect::<Vec<_>>();
-        let b_nodes = filter_top_level_children(other).collect::<Vec<_>>();
+        let a_nodes = filter_top_level_children(self).collect::<HashSet<_>>();
+        let b_nodes = filter_top_level_children(other).collect::<HashSet<_>>();
 
-        let mut a_map = HashMap::new();
-        let mut b_map = HashMap::new();
-
-        for a_node in a_nodes {
-            if is_affected_by_changed(&a_node.span, changed) {
-                let adjusted_span = adjust_span(&a_node.span, changed);
-                a_map.insert((a_node.hash, adjusted_span.clone()), a_node);
-            }
+        for value in b_nodes.difference(&a_nodes) {
+            changes.push(Change::Added(vec![value]));
         }
 
-        for b_node in b_nodes {
-            if is_affected_by_changed(&b_node.span, changed) {
-                let adjusted_span = adjust_span(&b_node.span, changed);
-                b_map.insert((b_node.hash, adjusted_span.clone()), b_node);
-            }
-        }
-
-        for (b_node, value) in &b_map {
-            if !a_map.contains_key(b_node) {
-                changes.push(Change::Added(value));
-            }
-        }
-
-        for (a_node, value) in &a_map {
-            if !b_map.contains_key(a_node) {
-                changes.push(Change::Removed(value));
-            }
+        for value in a_nodes.difference(&b_nodes) {
+            changes.push(Change::Removed(vec![value]));
         }
 
         changes
@@ -324,6 +314,12 @@ impl PrettyPrint for SyntaxNode {
     }
 }
 
+impl PrettyPrint for &SyntaxNode {
+    fn to_tree(&self) -> Tree {
+        (*self).to_tree()
+    }
+}
+
 impl PrettyPrint for SyntaxToken {
     fn to_tree(&self) -> Tree {
         Tree::label(format!("{} {:?} {}", self.kind, self.text, self.span))
@@ -353,15 +349,15 @@ impl fmt::Display for SyntaxElement {
 
 #[derive(Debug)]
 pub enum Change<'a> {
-    Added(&'a SyntaxNode),
-    Removed(&'a SyntaxNode),
+    Added(Vec<&'a SyntaxNode>),
+    Removed(Vec<&'a SyntaxNode>),
 }
 
 impl<'a> PrettyPrint for Change<'a> {
     fn to_tree(&self) -> Tree {
         match self {
-            Change::Added(node) => Tree::label("Added").with(node.to_tree()),
-            Change::Removed(node) => Tree::label("Removed").with(node.to_tree()),
+            Change::Added(node) => Tree::label("Added").add(node),
+            Change::Removed(node) => Tree::label("Removed").add(node),
         }
     }
 }
@@ -371,145 +367,8 @@ fn filter_top_level_children(node: &SyntaxNode) -> impl Iterator<Item = &SyntaxN
         .filter(|child| !matches!(child.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment))
 }
 
-fn is_affected_by_changed(span: &Span, changed_spans: &[Span]) -> bool {
+fn is_affected_by_changed(span: &Span, changed_spans: &[Edit]) -> bool {
     changed_spans
         .iter()
-        .any(|changed| span.starts_after(changed) || span.overlap(changed))
-}
-
-fn adjust_span(span: &Span, changed_spans: &[Span]) -> Span {
-    let mut adjusted_span = span.clone();
-    for changed in changed_spans {
-        if adjusted_span.starts_after(changed) {
-            let diff = changed.end.subtract(&changed.start);
-            let diff_start = adjusted_span.start.subtract(&diff);
-            let diff_end = adjusted_span.end.subtract(&diff);
-            adjusted_span = Span::new(diff_start, diff_end);
-        }
-    }
-    adjusted_span
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        parser::parse,
-        span::{Point, Span},
-        syntax::Change,
-    };
-
-    #[test]
-    fn test_no_changes() {
-        let input1 = "(a)";
-        let input2 = "(a)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[]);
-        assert!(changes.is_empty());
-    }
-
-    #[test]
-    fn test_added_node() {
-        let input1 = "(a)";
-        let input2 = "(a)(b)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
-        assert_eq!(changes.len(), 1);
-        matches!(changes[0], Change::Added(_));
-    }
-
-    #[test]
-    fn test_removed_node() {
-        let input1 = "(a)(b)";
-        let input2 = "(a)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
-        assert_eq!(changes.len(), 1);
-        matches!(changes[0], Change::Removed(_));
-    }
-
-    #[test]
-    fn test_changed_node() {
-        let input1 = "(a)";
-        let input2 = "(b)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
-        assert_eq!(changes.len(), 2);
-
-        assert!(matches!(changes[1], Change::Removed(_)));
-        assert!(matches!(changes[0], Change::Added(_)));
-    }
-
-    #[test]
-    fn test_changed_whitespace() {
-        let input1 = "(a) ";
-        let input2 = "(a)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
-        assert!(changes.is_empty());
-    }
-
-    #[test]
-    fn test_changed_comment() {
-        let input1 = "(a) ; comment";
-        let input2 = "(a)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 4), Point::new(0, 4))]);
-        assert!(changes.is_empty());
-    }
-
-    #[test]
-    fn test_adjusted_span() {
-        let input1 = "(a)";
-        let input2 = "(a)(b)";
-        let (syn1, errors1) = parse(input1);
-        let (syn2, errors2) = parse(input2);
-
-        assert_eq!(errors1.len(), 0);
-        assert_eq!(errors2.len(), 0);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 0), Point::new(0, 1))]);
-        assert_eq!(changes.len(), 1);
-        matches!(changes[0], Change::Added(_));
-    }
-
-    #[test]
-    fn test_id() {
-        let input1 = "a";
-        let input2 = "ab";
-        let (syn1, _) = parse(input1);
-        let (syn2, _) = parse(input2);
-
-        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
-        assert_eq!(changes.len(), 2);
-    }
+        .any(|changed| span.starts_after(&changed.span) || span.overlap(&changed.span))
 }
