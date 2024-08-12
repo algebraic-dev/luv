@@ -75,6 +75,7 @@ impl SyntaxNode {
         for child in &children {
             child.hash(&mut hasher);
         }
+
         let hash = hasher.finish();
 
         SyntaxNode {
@@ -144,7 +145,7 @@ impl SyntaxNode {
     }
 
     /// Compare two syntax trees and return the difference between them.
-    pub fn compare<'a>(&'a self, other: &'a SyntaxNode, changed: &[Span]) -> Vec<Change<'a>> {
+    pub fn compare_hashes<'a>(&'a self, other: &'a SyntaxNode, changed: &[Span]) -> Vec<Change<'a>> {
         let mut changes = Vec::new();
 
         let a_nodes = filter_top_level_children(self).collect::<Vec<_>>();
@@ -352,6 +353,15 @@ pub enum Change<'a> {
     Removed(&'a SyntaxNode),
 }
 
+impl<'a> PrettyPrint for Change<'a> {
+    fn to_tree(&self) -> Tree {
+        match self {
+            Change::Added(node) => Tree::label("Added").with(node.to_tree()),
+            Change::Removed(node) => Tree::label("Removed").with(node.to_tree()),
+        }
+    }
+}
+
 fn filter_top_level_children(node: &SyntaxNode) -> impl Iterator<Item = &SyntaxNode> {
     node.nodes()
         .filter(|child| !matches!(child.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment))
@@ -394,7 +404,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[]);
+        let changes = syn1.compare_hashes(&syn2, &[]);
         assert!(changes.is_empty());
     }
 
@@ -408,7 +418,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
         assert_eq!(changes.len(), 1);
         matches!(changes[0], Change::Added(_));
     }
@@ -423,7 +433,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
         assert_eq!(changes.len(), 1);
         matches!(changes[0], Change::Removed(_));
     }
@@ -438,7 +448,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
         assert_eq!(changes.len(), 2);
 
         assert!(matches!(changes[1], Change::Removed(_)));
@@ -455,7 +465,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 3), Point::new(0, 3))]);
         assert!(changes.is_empty());
     }
 
@@ -469,7 +479,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 4), Point::new(0, 4))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 4), Point::new(0, 4))]);
         assert!(changes.is_empty());
     }
 
@@ -483,7 +493,7 @@ mod tests {
         assert_eq!(errors1.len(), 0);
         assert_eq!(errors2.len(), 0);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 0), Point::new(0, 1))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 0), Point::new(0, 1))]);
         assert_eq!(changes.len(), 1);
         matches!(changes[0], Change::Added(_));
     }
@@ -495,7 +505,7 @@ mod tests {
         let (syn1, _) = parse(input1);
         let (syn2, _) = parse(input2);
 
-        let changes = syn1.compare(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
+        let changes = syn1.compare_hashes(&syn2, &[Span::new(Point::new(0, 1), Point::new(0, 1))]);
         assert_eq!(changes.len(), 2);
     }
 }

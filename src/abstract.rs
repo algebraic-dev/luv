@@ -211,12 +211,17 @@ impl<'a> Quote<'a> {
             .ok_or_else(|| Error::new("Expected a child node.".to_owned(), self.0.span.clone()))
             .cloned()
     }
+
+    /// Returns the `Span`
+    pub fn span(&self) -> Span {
+        self.0.span.clone()
+    }
 }
 
 /// Represents the parameters of a function.
 
 #[derive(Clone, Debug)]
-pub struct Params<'a>(NodeList<'a>);
+pub struct Params<'a>(pub NodeList<'a>);
 
 impl<'a> Params<'a> {
     /// Creates a `Params` from a `SyntaxNode`.
@@ -238,7 +243,7 @@ impl<'a> Params<'a> {
 
 /// Represents a function definition.
 #[derive(Clone, Debug)]
-pub struct Def<'a>(NodeList<'a>);
+pub struct Def<'a>(pub NodeList<'a>);
 
 impl<'a> Def<'a> {
     /// Creates a `Def` from a `SyntaxNode` representing a list.
@@ -273,7 +278,7 @@ impl<'a> Def<'a> {
 /// Represents a function definition.
 
 #[derive(Clone, Debug)]
-pub struct Defn<'a>(NodeList<'a>);
+pub struct Defn<'a>(pub NodeList<'a>);
 
 impl<'a> Defn<'a> {
     /// Creates a `Defn` from a `SyntaxNode` representing a list.
@@ -315,7 +320,7 @@ impl<'a> Defn<'a> {
 /// Represents an `eval` statement.
 
 #[derive(Clone, Debug)]
-pub struct Eval<'a>(NodeList<'a>);
+pub struct Eval<'a>(pub NodeList<'a>);
 
 impl<'a> Eval<'a> {
     /// Creates an `Eval` instance from a `List`.
@@ -329,16 +334,15 @@ impl<'a> Eval<'a> {
     }
 
     /// Retrieves the statement from the `Eval` node.
-    pub fn expr(&mut self) -> Result<Expr<'a>> {
-        let node = self.0.next_with_error("expected statement")?;
-        Expr::from_node(node)
+    pub fn body(&mut self) -> Result<Option<Expr<'a>>> {
+        self.0.retrieve_optional(Expr::from_node)
     }
 }
 
 /// Represents a `set-option` statement.
 
 #[derive(Clone, Debug)]
-pub struct SetOption<'a>(NodeList<'a>);
+pub struct SetOption<'a>(pub NodeList<'a>);
 
 impl<'a> SetOption<'a> {
     /// Creates a `SetOption` instance from a `List`.
@@ -362,7 +366,7 @@ impl<'a> SetOption<'a> {
 /// Represents a `require` statement.
 
 #[derive(Clone, Debug)]
-pub struct Require<'a>(NodeList<'a>);
+pub struct Require<'a>(pub NodeList<'a>);
 
 impl<'a> Require<'a> {
     /// Creates a `Require` instance from a `List`.
@@ -411,7 +415,7 @@ impl<'a> TopLevel<'a> {
 /// Represents an `if` expression.
 
 #[derive(Clone, Debug)]
-pub struct If<'a>(NodeList<'a>);
+pub struct If<'a>(pub NodeList<'a>);
 
 impl<'a> If<'a> {
     /// Creates an `If` instance from a `List`.
@@ -436,12 +440,17 @@ impl<'a> If<'a> {
         let node = self.0.next_with_error("expected else expression")?;
         Expr::from_node(node)
     }
+
+    /// Returns the `Span`
+    pub fn span(&self) -> Span {
+        self.0 .1.span.clone()
+    }
 }
 
 /// Represents a block of statements.
 
 #[derive(Clone, Debug)]
-pub struct Block<'a>(NodeList<'a>);
+pub struct Block<'a>(pub NodeList<'a>);
 
 impl<'a> Block<'a> {
     /// Creates a `Block` instance from a `List`.
@@ -463,7 +472,7 @@ impl<'a> Block<'a> {
 /// Represents a function definition.
 
 #[derive(Clone, Debug)]
-pub struct Fn<'a>(NodeList<'a>);
+pub struct Fn<'a>(pub NodeList<'a>);
 
 impl<'a> Fn<'a> {
     /// Creates a `Fn` instance from a `List`.
@@ -491,7 +500,7 @@ impl<'a> Fn<'a> {
 /// Represents a function application.
 
 #[derive(Clone, Debug)]
-pub struct App<'a>(NodeList<'a>);
+pub struct App<'a>(pub NodeList<'a>);
 
 impl<'a> App<'a> {
     /// Creates an `App` instance from a `List`.
@@ -508,6 +517,11 @@ impl<'a> App<'a> {
     /// Retrieves the argument for the function application, if present.
     pub fn argument(&mut self) -> Result<Option<Expr<'a>>> {
         self.0.retrieve_optional(Expr::from_node)
+    }
+
+    /// Returns the `Span`
+    pub fn span(&self) -> Span {
+        self.0 .1.span.clone()
     }
 }
 
@@ -553,12 +567,26 @@ impl<'a> Expr<'a> {
             }
         }
     }
+
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::If(value) => value.span(),
+            Expr::Fn(value) => value.span(),
+            Expr::App(value) => value.span(),
+            Expr::Block(value) => value.span(),
+            Expr::Quote(value) => value.span(),
+            Expr::Identifier(value) => value.span(),
+            Expr::Number(value) => value.span(),
+            Expr::Str(value) => value.span(),
+            Expr::Let(value) => value.span(),
+        }
+    }
 }
 
 /// Represents a `let` statement.
 
 #[derive(Clone, Debug)]
-pub struct Let<'a>(NodeList<'a>);
+pub struct Let<'a>(pub NodeList<'a>);
 
 impl<'a> Let<'a> {
     /// Creates a `Let` instance from a `List`.
@@ -576,5 +604,56 @@ impl<'a> Let<'a> {
     pub fn value(&mut self) -> Result<Expr<'a>> {
         let value_node = self.0.next_with_error("expected value expression")?;
         Expr::from_node(value_node)
+    }
+
+    /// Returns the `Span`
+    pub fn span(&self) -> Span {
+        self.0 .1.span.clone()
+    }
+}
+
+/// Name of a function
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Name {
+    Defn(String),
+    Def(String),
+    Require(String),
+    Eval(u64),
+}
+
+impl SyntaxNode {
+    /// Gets the identifier info for nodes that have identifiers.
+    pub fn toplevel_info(&self) -> Option<Name> {
+        if let Ok(tl) = TopLevel::from_node(self) {
+            match tl {
+                TopLevel::Def(mut def) => {
+                    if let Ok(id) = def.name() {
+                        if let Ok(name) = id.text() {
+                            return Some(Name::Def(name.to_owned()));
+                        }
+                    }
+                }
+                TopLevel::Defn(mut def) => {
+                    if let Ok(id) = def.name() {
+                        if let Ok(name) = id.text() {
+                            return Some(Name::Defn(name.to_owned()));
+                        }
+                    }
+                }
+                TopLevel::Require(mut req) => {
+                    if let Ok(id) = req.name() {
+                        if let Ok(name) = id.string() {
+                            return Some(Name::Require(name.to_owned()));
+                        }
+                    }
+                }
+                TopLevel::Eval(eval) => {
+                    return Some(Name::Eval(eval.0.1.hash))
+                }
+                TopLevel::SetOption(_) => todo!(),
+            };
+        }
+
+        None
     }
 }

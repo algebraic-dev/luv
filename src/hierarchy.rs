@@ -144,7 +144,7 @@ impl<T: Default> HierarchyBuilder<T> {
     /// Opens a new range within the current range, given the `span`.
     /// Panics if the new range intersects or is not contained within the current range.
     pub fn open(&mut self, span: Span) {
-        if self.data.last().is_some() {
+        if !self.data.is_empty() {
             let current_range = self.data.last_mut().expect("No current range found");
 
             if !current_range.site.span.contains(&span) {
@@ -154,7 +154,10 @@ impl<T: Default> HierarchyBuilder<T> {
                         span, current_range.site.span
                     );
                 }
-                panic!("The new range is not contained within the current range.")
+                panic!(
+                    "The new range {} is not contained within the current range {}.",
+                    span, current_range.site.span
+                )
             }
         }
 

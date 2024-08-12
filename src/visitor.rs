@@ -7,65 +7,35 @@ pub trait Visitor<'a>
 where
     Self: Sized,
 {
-    fn visit_let(&mut self, mut let_expr: Let<'a>) -> Option<()> {
-        let_expr.walk(self)
-    }
+    fn visit_let(&mut self, let_expr: Let<'a>) -> Option<()>;
 
-    fn visit_fn(&mut self, mut func: Fn<'a>) -> Option<()> {
-        func.walk(self)
-    }
+    fn visit_fn(&mut self, func: Fn<'a>) -> Option<()>;
 
-    fn visit_def(&mut self, mut def: Def<'a>) -> Option<()> {
-        def.walk(self)
-    }
+    fn visit_def(&mut self, def: Def<'a>) -> Option<()>;
 
-    fn visit_defn(&mut self, mut defn: Defn<'a>) -> Option<()> {
-        defn.walk(self)
-    }
+    fn visit_defn(&mut self, defn: Defn<'a>) -> Option<()>;
 
-    fn visit_eval(&mut self, mut eval: Eval<'a>) -> Option<()> {
-        eval.walk(self)
-    }
+    fn visit_eval(&mut self, eval: Eval<'a>) -> Option<()>;
 
-    fn visit_set_option(&mut self, mut set_option: SetOption<'a>) -> Option<()> {
-        set_option.walk(self)
-    }
+    fn visit_set_option(&mut self, set_option: SetOption<'a>) -> Option<()>;
 
-    fn visit_require(&mut self, mut require: Require<'a>) -> Option<()> {
-        require.walk(self)
-    }
+    fn visit_require(&mut self, require: Require<'a>) -> Option<()>;
 
-    fn visit_if(&mut self, mut if_expr: If<'a>) -> Option<()> {
-        if_expr.walk(self)
-    }
+    fn visit_if(&mut self, if_expr: If<'a>) -> Option<()>;
 
-    fn visit_block(&mut self, mut block: Block<'a>) -> Option<()> {
-        block.walk(self)
-    }
+    fn visit_block(&mut self, block: Block<'a>) -> Option<()>;
 
-    fn visit_app(&mut self, mut app: App<'a>) -> Option<()> {
-        app.walk(self)
-    }
+    fn visit_app(&mut self, app: App<'a>) -> Option<()>;
 
-    fn visit_quote(&mut self, mut quote: Quote<'a>) -> Option<()> {
-        quote.walk(self)
-    }
+    fn visit_quote(&mut self, quote: Quote<'a>) -> Option<()>;
 
-    fn visit_identifier(&mut self, mut id: Identifier<'a>) -> Option<()> {
-        id.walk(self)
-    }
+    fn visit_identifier(&mut self, id: Identifier<'a>) -> Option<()>;
 
-    fn visit_number(&mut self, mut num: Number<'a>) -> Option<()> {
-        num.walk(self)
-    }
+    fn visit_number(&mut self, num: Number<'a>) -> Option<()>;
 
-    fn visit_str(&mut self, mut s: Str<'a>) -> Option<()> {
-        s.walk(self)
-    }
+    fn visit_str(&mut self, s: Str<'a>) -> Option<()>;
 
-    fn visit_params(&mut self, mut s: Params<'a>) -> Option<()> {
-        s.walk(self)
-    }
+    fn visit_params(&mut self, s: Params<'a>) -> Option<()>;
 }
 
 /// Default walk implementations for each variant.
@@ -141,7 +111,7 @@ impl<'a> Params<'a> {
 
 impl<'a> Eval<'a> {
     pub fn walk<V: Visitor<'a>>(&mut self, visitor: &mut V) -> Option<()> {
-        if let Ok(expr) = self.expr() {
+        while let Ok(Some(expr)) = self.body() {
             expr.visit(visitor)?;
         }
 
