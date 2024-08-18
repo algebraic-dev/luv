@@ -1,6 +1,5 @@
 pub mod r#abstract;
 pub mod analyze;
-pub mod change;
 pub mod env;
 pub mod errors;
 pub mod hierarchy;
@@ -13,6 +12,6 @@ pub mod scope;
 pub mod span;
 pub mod storage;
 pub mod syntax;
-pub mod visitor;
 pub mod file;
 pub mod definition;
+pub mod server;

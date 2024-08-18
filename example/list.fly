@@ -1,13 +1,3 @@
-(defn ate (e) 
-    ate
-    acho
-    muito
-    foda
-    ter
-    tipo
-    aqueles negocio
-    de
-    folding
-    (let sabe 3)
-    sabe
-    po)
+(defn a (x y) 3)
+
+(require 3 3)

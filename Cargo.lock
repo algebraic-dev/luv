@@ -119,16 +119,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
-name = "firefly"
-version = "0.1.0"
-dependencies = [
- "im-rc",
- "petgraph",
- "tokio",
- "tower-lsp",
-]
-
-[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -298,6 +288,16 @@ checksum = "07af8b9cdd281b7915f413fa73f29ebd5d55d0d3f0155584dade1ff18cea1b17"
 dependencies = [
  "autocfg",
  "scopeguard",
+]
+
+[[package]]
+name = "lovelace"
+version = "0.1.0"
+dependencies = [
+ "im-rc",
+ "petgraph",
+ "tokio",
+ "tower-lsp",
 ]
 
 [[package]]

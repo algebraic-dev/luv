@@ -8,7 +8,7 @@ use std::slice::Iter;
 
 use crate::id;
 use crate::prettytree::{PrettyPrint, Tree};
-use crate::span::{Diff, Edit, Point, Span, Spanned};
+use crate::span::{Span, Spanned};
 
 /// All the types of syntax that a piece of text can have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -18,6 +18,7 @@ pub enum SyntaxKind {
     RPar,
     Identifier,
     Number,
+    Atom,
     String,
     Comment,
     Whitespace,
@@ -36,6 +37,7 @@ impl fmt::Display for SyntaxKind {
             SyntaxKind::LPar => write!(f, "lpar"),
             SyntaxKind::RPar => write!(f, "rpar"),
             SyntaxKind::Identifier => write!(f, "identifier"),
+            SyntaxKind::Atom => write!(f, "atom"),
             SyntaxKind::Number => write!(f, "number"),
             SyntaxKind::String => write!(f, "string"),
             SyntaxKind::Comment => write!(f, "comment"),
@@ -365,10 +367,4 @@ impl<'a> PrettyPrint for Change<'a> {
 fn filter_top_level_children(node: &SyntaxNode) -> impl Iterator<Item = &SyntaxNode> {
     node.nodes()
         .filter(|child| !matches!(child.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment))
-}
-
-fn is_affected_by_changed(span: &Span, changed_spans: &[Edit]) -> bool {
-    changed_spans
-        .iter()
-        .any(|changed| span.starts_after(&changed.span) || span.overlap(&changed.span))
 }
