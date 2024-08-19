@@ -1,3 +1,4 @@
-(defn a (x y) 3)
+(require "./example/be.fly")
 
-(require 3 3)
+(defn ata (x) x
+    fivee)

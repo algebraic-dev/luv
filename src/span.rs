@@ -153,7 +153,7 @@ impl fmt::Display for Span {
 }
 
 /// A generic type that wraps data along with a [Span], useful for attaching source information to parsed elements.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub data: T,
     pub span: Span,

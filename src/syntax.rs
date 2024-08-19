@@ -75,7 +75,7 @@ impl SyntaxNode {
         let mut hasher = DefaultHasher::new();
 
         kind.hash(&mut hasher);
-        
+
         for child in &children {
             child.hash(&mut hasher);
         }
@@ -102,7 +102,10 @@ impl SyntaxNode {
 
     /// Converts the node to a map of its nodes.
     pub fn to_map(&self, file: id::Id<id::File>) -> HashMap<Id, SyntaxNode> {
-        self.clone().get_nodes().map(|x| (x.get_id(file), x)).collect()
+        self.clone()
+            .get_nodes()
+            .map(|x| (x.get_id(file), x))
+            .collect()
     }
 
     /// Returns the unique identifier for the node.
@@ -159,10 +162,7 @@ impl SyntaxNode {
     }
 
     /// Compare two syntax trees and return the difference between them.
-    pub fn compare_hashes<'a>(
-        &'a self,
-        other: &'a SyntaxNode,
-    ) -> Vec<Change<'a>> {
+    pub fn compare_hashes<'a>(&'a self, other: &'a SyntaxNode) -> Vec<Change<'a>> {
         let mut changes = Vec::new();
 
         let a_nodes = filter_top_level_children(self).collect::<HashSet<_>>();

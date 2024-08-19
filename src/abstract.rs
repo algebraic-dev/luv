@@ -1,4 +1,4 @@
-use crate::span::Spanned;
+use crate::span::{Span, Spanned};
 
 /// A spanned string type, representing text with associated position information.
 pub type Text = Spanned<String>;
@@ -17,11 +17,10 @@ pub type Literal = Spanned<LiteralKind>;
 pub enum ExprKind {
     Let(LetExpr),
     If(IfExpr),
-    Binary(BinaryExpr),
     Call(CallExpr),
     Lambda(LambdaExpr),
     Literal(Literal),
-    Identifier(Identifier),
+    Identifier(Text),
     Error
 }
 
@@ -66,14 +65,9 @@ pub struct LambdaExpr {
     pub body: Vec<Expr>,
 }
 
-/// Represents an identifier, such as a variable or function name.
-pub struct Identifier {
-    pub name: String,
-}
-
 /// Represents different kinds of top-level forms in the language.
 pub enum TopLevelKind {
-    Require(RequireForm),
+    Require(Require),
     Defn(Defn),
     Def(Def),
     Eval(Eval),
@@ -84,9 +78,9 @@ pub enum TopLevelKind {
 pub type TopLevel = Spanned<TopLevelKind>;
 
 /// Represents a `require` form, used to include external libraries or modules.
-pub struct RequireForm {
+pub struct Require {
     pub name: Text,
-    pub options: Vec<(String, Expr)>,
+    pub options: Vec<(Text, Text)>,
 }
 
 /// Represents a `defn` form, used to define a named function.
@@ -105,4 +99,10 @@ pub struct Def {
 /// Represents an `eval` form, used to evaluate an expression.
 pub struct Eval {
     pub expr: Vec<Expr>,
+}
+
+/// Program
+pub struct Program {
+    pub vec: Vec<TopLevel>,
+    pub span: Span
 }

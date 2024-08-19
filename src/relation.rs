@@ -44,6 +44,11 @@ impl<K: Hash + Eq + Clone> Relations<K> {
             .or_insert_with(|| self.graph.add_node(node))
     }
 
+    /// Adds a node to the graph if it doesn't exist and returns its index.
+    pub fn get_node(&mut self, node: K) -> Option<&NodeIndex> {
+        self.nodes.get(&node)
+    }
+
     /// Removes an edge between two nodes.
     pub fn remove_edge(&mut self, f: K, t: K) {
         let from_node = *self.nodes.get(&f).expect("From node does not exist");
@@ -98,13 +103,13 @@ impl<K: Hash + Eq + Clone> Relations<K> {
     }
 
     /// Returns everything that got affected by changes in a node.
-    pub fn affected(&mut self, start: &[K]) -> HashSet<K> {
+    pub fn affected<T: IntoIterator<Item = K>>(&mut self, start: T) -> HashSet<K> {
         let mut affected = HashSet::new();
         let mut queue = VecDeque::new();
 
         // Add start nodes to the queue
         for id in start {
-            if let Some(&index) = self.nodes.get(id) {
+            if let Some(&index) = self.nodes.get(&id) {
                 queue.push_back(index);
             }
         }
@@ -150,10 +155,8 @@ impl<K: Hash + Eq + Clone> Relations<K> {
 
     pub fn connected(&mut self, successor: K) -> Neighbors<i32, u32> {
         let successor = self.nodes.get(&successor).unwrap();
-        self.graph
-            .neighbors_undirected(*successor)
+        self.graph.neighbors_undirected(*successor)
     }
-
 
     fn dependents(&mut self, successor: NodeIndex) -> Neighbors<i32, u32> {
         self.graph
@@ -180,11 +183,12 @@ mod tests {
         let node_c = AnId::Definition(Id::new(3));
         let node_d = AnId::Module(Id::new(4));
 
-        relations.connect(node_a, node_b);
-        relations.connect(node_b, node_c);
-        relations.connect(node_c, node_d);
+        relations.connect(&node_a, &node_b);
+        relations.connect(&node_b, &node_c);
+        relations.connect(&node_c, &node_d);
 
-        let removed = relations.affected(&[node_b]);
+        let binding = [node_b];
+        let removed = relations.affected(&binding);
 
         println!("{:?}", removed);
     }

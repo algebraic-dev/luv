@@ -1,8 +1,7 @@
 //! This module defines the [Hierarchy] structure which manages range-related data.
 
 use crate::{
-    prettytree::{PrettyPrint, Tree},
-    span::Span,
+    prettytree::{PrettyPrint, Tree}, span::Span
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -112,20 +111,13 @@ impl<V> Hierarchy<V> {
     }
 
     /// Accumulates and returns a vector of all [Site<V>] instances that intersect with the given span.
-    pub fn accumulate<'a>(&'a self, span: &Span) -> Vec<&'a Site<V>> {
-        fn acc<'a, V>(map: &'a Hierarchy<V>, span: &Span, data: &mut Vec<&'a Site<V>>) {
-            if map.site.span.contains(span) {
-                data.push(&map.site);
-
-                for range in &map.forest {
-                    acc(range, span, data)
-                }
+    pub fn accumulate<'a>(&'a self, span: &Span, data: &mut Vec<&'a Site<V>>) {
+        if self.site.span.contains(span) {
+            data.push(&self.site);
+            for range in &self.forest {
+                range.accumulate(span, data)
             }
         }
-
-        let mut vec = Vec::new();
-        acc(self, span, &mut vec);
-        vec
     }
 }
 
@@ -190,6 +182,18 @@ impl<T: Default> HierarchyBuilder<T> {
     pub fn finish(&mut self) -> Hierarchy<T> {
         assert_eq!(self.data.len(), 1, "Not all ranges were closed.");
         self.data.pop().unwrap()
+    }
+
+    pub fn accumulate<'a>(&'a mut self, span: Span) -> Vec<&'a Hierarchy<T>> {
+        let mut vec = Vec::new();
+
+        for scope in &self.data {
+            if scope.site.span.contains(&span) {
+                vec.push(scope);
+            }
+        }
+
+        vec
     }
 }
 

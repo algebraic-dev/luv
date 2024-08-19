@@ -1,12 +1,22 @@
 //! A File in the definition of things that need to be saved.
 
-use crate::{errors::Error, syntax::SyntaxNode};
-#[derive(Debug)]
+use std::collections::HashSet;
+
+use crate::{
+    errors::Error,
+    id::{self, Id},
+    r#abstract::{Program, Text},
+    span::Span,
+    syntax::SyntaxNode,
+};
 pub struct File {
     pub old_tree: SyntaxNode,
     pub new_tree: SyntaxNode,
     pub source: String,
-    pub syntax_errors: Vec<Error>
+    pub errors: Vec<Error>,
+    pub imports: HashSet<Id<id::File>>,
+    pub names: HashSet<Text>,
+    pub ast: Program,
 }
 
 impl File {
@@ -15,7 +25,13 @@ impl File {
             old_tree: SyntaxNode::empty(),
             new_tree,
             source,
-            syntax_errors
+            errors: syntax_errors,
+            imports: Default::default(),
+            names: Default::default(),
+            ast: Program {
+                vec: vec![],
+                span: Span::empty(),
+            },
         }
     }
 }

@@ -1,16 +1,20 @@
+use std::collections::HashMap;
+
 use crate::{
     errors::Error,
+    hierarchy::HierarchyBuilder,
     r#abstract::*,
+    scope::Scope,
     span::{Span, Spanned},
     syntax::{SyntaxKind, SyntaxNode},
 };
 
 #[derive(Default)]
-pub struct Analysis {
+pub struct Data {
     pub errors: Vec<Error>,
 }
 
-impl Analysis {
+impl Data {
     fn expected<'a>(&mut self, kind: SyntaxKind, list: &'a SyntaxNode) {
         self.error(
             list.span.clone(),
@@ -162,13 +166,11 @@ impl Analysis {
         mut iter: impl Iterator<Item = &'a SyntaxNode>,
     ) -> TopLevel {
         let name = self.next_identifier(span.clone(), &mut iter);
-
         let body = if let Some(node) = self.next(&mut iter, span.clone(), "expected value") {
             Some(self.parse_expr(node))
         } else {
             None
         };
-
         let body = if let Some((name, value)) = name.zip(body) {
             TopLevelKind::Def(Def {
                 name,
@@ -188,18 +190,27 @@ impl Analysis {
         span: Span,
         mut iter: impl Iterator<Item = &'a SyntaxNode>,
     ) -> TopLevel {
-        let name = self.next_identifier(span.clone(), &mut iter);
+        let name = self.next(&mut iter, span.clone(), "expected a path.");
+
+        let name = name.and_then(|node| match node.kind {
+            SyntaxKind::String => {
+                let token = node.first_token().unwrap();
+                Some(Text::new(token.text.clone(), token.span.clone()))
+            }
+            _ => {
+                self.error(node.span.clone(), "expected a path as a string.".to_owned());
+                None
+            }
+        });
 
         let mut options = Vec::new();
 
         while let Some(next) = iter.next() {
             if let Some(mut option) = self.list(next) {
                 let key = self.next_identifier(span.clone(), &mut option);
-                let value = self
-                    .next(&mut option, span.clone(), "expected value")
-                    .map(|node| self.parse_expr(node));
+                let value = self.next_identifier(span.clone(), &mut option);
                 if let Some((key, value)) = key.zip(value) {
-                    options.push((key.data, value));
+                    options.push((key, value));
                 } else {
                     self.error(span.clone(), "invalid require option".to_owned());
                 }
@@ -209,7 +220,7 @@ impl Analysis {
         }
 
         let require = if let Some(name) = name {
-            TopLevelKind::Require(RequireForm { name, options })
+            TopLevelKind::Require(Require { name, options })
         } else {
             TopLevelKind::Error
         };
@@ -238,7 +249,9 @@ impl Analysis {
 
         match node.kind {
             SyntaxKind::Identifier => self.parse_identifier_expr(node, span),
-            SyntaxKind::Literal => self.parse_literal_expr(node, span),
+            SyntaxKind::Number => self.parse_literal_expr(node, span),
+            SyntaxKind::String => self.parse_literal_expr(node, span),
+            SyntaxKind::Atom => self.parse_literal_expr(node, span),
             SyntaxKind::List => self.parse_list_expr(node, span),
             _ => {
                 self.error(span.clone(), "unexpected syntax node".to_owned());
@@ -265,7 +278,7 @@ impl Analysis {
 
     fn parse_identifier_expr<'a>(&mut self, node: &'a SyntaxNode, span: Span) -> Expr {
         let id = self.identifier(node).unwrap();
-        Expr::new(ExprKind::Identifier(Identifier { name: id.data }), span)
+        Expr::new(ExprKind::Identifier(id.clone()), span)
     }
 
     fn parse_literal_expr<'a>(&mut self, node: &'a SyntaxNode, span: Span) -> Expr {
@@ -292,12 +305,17 @@ impl Analysis {
 
         self.drain(children);
 
-        if let Some((name, body)) = name.zip(body) {
-            let let_expr = LetExpr {
-                name,
-                body: Box::new(body),
-            };
-            Expr::new(ExprKind::Let(let_expr), span)
+        if let Some(name) = name {
+            if let Some(body) = body {
+                let let_expr = LetExpr {
+                    name,
+                    body: Box::new(body),
+                };
+
+                Expr::new(ExprKind::Let(let_expr), span)
+            } else {
+                Expr::new(ExprKind::Error, span)
+            }
         } else {
             Expr::new(ExprKind::Error, span)
         }
@@ -347,10 +365,7 @@ impl Analysis {
         }
 
         let call_expr = CallExpr {
-            callee: Box::new(Expr::new(
-                ExprKind::Identifier(Identifier { name: callee.data }),
-                callee.span,
-            )),
+            callee: Box::new(Expr::new(ExprKind::Identifier(callee.clone()), callee.span)),
             arguments,
         };
 
@@ -379,4 +394,178 @@ impl Analysis {
             Expr::new(ExprKind::Error, span)
         }
     }
+}
+
+pub fn to_abstract(syntax: &SyntaxNode) -> (Data, Program) {
+    let mut data = Data::default();
+    let vec = data.parse_program(syntax.nodes());
+    (
+        data,
+        Program {
+            vec,
+            span: syntax.span.clone(),
+        },
+    )
+}
+
+pub struct ScopeTracker {
+    pub scopes: HierarchyBuilder<Scope>,
+    pub unbound: HashMap<String, Vec<Text>>,
+    pub defined: HashMap<String, Vec<Text>>,
+}
+
+impl ScopeTracker {
+    pub fn new(span: Span) -> Self {
+        Self {
+            scopes: HierarchyBuilder::new(span),
+            unbound: Default::default(),
+            defined: Default::default(),
+        }
+    }
+
+    fn open(&mut self, span: Span) {
+        self.scopes.open(span)
+    }
+
+    fn close(&mut self) {
+        self.scopes.close()
+    }
+
+    fn add(&mut self, name: String, span: Span) {
+        let scope = self.scopes.get();
+        scope.add(name, span)
+    }
+
+    fn find(&mut self, span: Span, name: String) -> Option<Span> {
+        let scopes = self.scopes.accumulate(span.clone());
+
+        for site in scopes {
+            if let Some(span) = site.find(&name, &span) {
+                return Some(span);
+            }
+        }
+
+        if let Some(span) = self.defined.get(&name) {
+            return Some(span.first().unwrap().span.clone())
+        }
+
+        None
+    }
+
+    fn check_expr(&mut self, expr: &Expr) {
+        match &expr.data {
+            ExprKind::Let(let_expr) => {
+                self.check_expr(&let_expr.body);
+                self.add(let_expr.name.data.clone(), expr.span.clone());
+            }
+            ExprKind::If(if_expr) => {
+                self.check_expr(&if_expr.condition);
+                self.open(if_expr.true_branch.span.clone());
+                self.check_expr(&if_expr.true_branch);
+                self.close();
+                self.open(if_expr.false_branch.span.clone());
+                self.check_expr(&if_expr.false_branch);
+                self.close();
+            }
+            ExprKind::Call(call_expr) => {
+                self.check_expr(&call_expr.callee);
+                for arg in &call_expr.arguments {
+                    self.check_expr(arg);
+                }
+            }
+            ExprKind::Lambda(lambda_expr) => {
+                self.open(expr.span.clone());
+                for param in &lambda_expr.parameters {
+                    self.add(param.clone(), expr.span.clone());
+                }
+                for body_expr in &lambda_expr.body {
+                    self.check_expr(body_expr);
+                }
+                self.close();
+            }
+            ExprKind::Identifier(identifier) => {
+                if self
+                    .find(identifier.span.clone(), identifier.data.clone())
+                    .is_none()
+                {
+                    self.unbound
+                        .entry(identifier.data.clone())
+                        .or_default()
+                        .push(identifier.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn check_program(&mut self, program: &Program) {
+        for top_level in &program.vec {
+            self.check_top_level(top_level);
+        }
+    }
+
+    fn check_top_level(&mut self, top_level: &TopLevel) {
+        match &top_level.data {
+            TopLevelKind::Defn(defn) => {
+                self.open(top_level.span.clone());
+                for param in &defn.params {
+                    self.add(param.data.clone(), param.span.clone());
+                }
+                for body_expr in &defn.body {
+                    self.check_expr(body_expr);
+                }
+                self.close();
+            }
+            TopLevelKind::Def(def) => {
+                self.open(top_level.span.clone());
+                self.check_expr(&def.value);
+                self.close();
+            }
+            TopLevelKind::Eval(eval) => {
+                for expr in &eval.expr {
+                    self.check_expr(expr);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn register_toplevel(&mut self, top_level: &TopLevel) {
+        match &top_level.data {
+            TopLevelKind::Defn(defn) => {
+                self.defined
+                    .entry(defn.name.data.clone())
+                    .or_default()
+                    .push(defn.name.clone());
+            }
+            TopLevelKind::Def(def) => {
+                self.defined
+                    .entry(def.name.data.clone())
+                    .or_default()
+                    .push(def.name.clone());
+            }
+            TopLevelKind::Require(req) => {
+                for (_, rename) in &req.options {
+                    self.defined
+                        .entry(rename.data.clone())
+                        .or_default()
+                        .push(rename.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn register_program(&mut self, program: &Program) {
+        for tl in &program.vec {
+            self.register_toplevel(tl)
+        }
+    }
+}
+
+pub fn get_scopes(program: &Program) -> ScopeTracker {
+    let mut tracker = ScopeTracker::new(program.span.clone());
+    tracker.register_program(program);
+    tracker.check_program(program);
+    tracker
 }
