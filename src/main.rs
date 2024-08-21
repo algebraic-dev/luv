@@ -7,7 +7,7 @@ use tower_lsp::{LspService, Server};
 #[tokio::main]
 async fn main() {
     env::set_var("RUST_BACKTRACE", "1");
-    
+
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     let (sender, mut receiver) = mpsc::channel(8);
     let (service, socket) = LspService::new(|client| Backend::new(client, sender));
@@ -18,8 +18,8 @@ async fn main() {
         while let Some(message) = receiver.recv().await {
             match message {
                 Event::Recompiled(rec) => backend.handle_recompile(rec).await,
-                Event::Log(log) =>  backend.handle_env_log(log).await,
-                _ => ()
+                Event::Log(log) => backend.handle_env_log(log).await,
+                _ => (),
             }
         }
     });

@@ -1,7 +1,8 @@
 //! This module defines the [Hierarchy] structure which manages range-related data.
 
 use crate::{
-    prettytree::{PrettyPrint, Tree}, span::Span
+    prettytree::{PrettyPrint, Tree},
+    span::Span,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -184,7 +185,7 @@ impl<T: Default> HierarchyBuilder<T> {
         self.data.pop().unwrap()
     }
 
-    pub fn accumulate<'a>(&'a mut self, span: Span) -> Vec<&'a Hierarchy<T>> {
+    pub fn accumulate(&mut self, span: Span) -> Vec<&Hierarchy<T>> {
         let mut vec = Vec::new();
 
         for scope in &self.data {

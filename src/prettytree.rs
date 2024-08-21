@@ -23,8 +23,8 @@ impl Tree {
         self
     }
 
-    pub fn add<T: PrettyPrint>(mut self, child: &[T]) -> Self {
-        self.child = child.into_iter().map(|x| x.to_tree()).collect();
+    pub fn add_child<T: PrettyPrint>(mut self, child: &[T]) -> Self {
+        self.child = child.iter().map(|x| x.to_tree()).collect();
         self
     }
 

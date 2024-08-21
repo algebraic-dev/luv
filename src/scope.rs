@@ -3,14 +3,16 @@
 use std::collections::HashMap;
 
 use crate::{
-    hierarchy::Hierarchy, prettytree::{PrettyPrint, Tree}, span::Span
+    hierarchy::Hierarchy,
+    prettytree::{PrettyPrint, Tree},
+    span::Span,
 };
 
 /// Represents a scope within the AST analysis.
 #[derive(Default, Debug)]
 pub struct Scope {
     /// A map that associates variable names (as `String`) with their corresponding [Span].
-    vars: HashMap<String, Vec<Span>>,
+    pub vars: HashMap<String, Vec<Span>>,
 }
 
 impl Hierarchy<Scope> {
@@ -18,7 +20,7 @@ impl Hierarchy<Scope> {
         if self.site.span.contains(span) {
             for range in &self.forest {
                 if let Some(range) = range.find(data, span) {
-                    return Some(range)
+                    return Some(range);
                 }
             }
 
@@ -30,7 +32,6 @@ impl Hierarchy<Scope> {
         }
     }
 }
-
 
 impl PrettyPrint for Scope {
     fn to_tree(&self) -> crate::prettytree::Tree {

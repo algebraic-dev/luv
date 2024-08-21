@@ -21,7 +21,7 @@ pub enum ExprKind {
     Lambda(LambdaExpr),
     Literal(Literal),
     Identifier(Text),
-    Error
+    Error,
 }
 
 /// A spanned expression kind, representing an expression with associated position information.
@@ -30,7 +30,7 @@ pub type Expr = Spanned<ExprKind>;
 /// Represents a `let` expression, which binds values to names within an expression.
 pub struct LetExpr {
     pub name: Text,
-    pub body: Box<Expr>
+    pub body: Box<Expr>,
 }
 
 /// Represents an `if` expression, which conditionally executes one of two branches.
@@ -44,7 +44,7 @@ pub enum BinaryOp {
     Add,
     Sub,
     Mul,
-    Div
+    Div,
 }
 
 /// Represents a binary operation, such as addition or multiplication.
@@ -104,5 +104,5 @@ pub struct Eval {
 /// Program
 pub struct Program {
     pub vec: Vec<TopLevel>,
-    pub span: Span
+    pub span: Span,
 }

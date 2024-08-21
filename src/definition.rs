@@ -1,5 +1,10 @@
-
-use crate::{errors::Error, hierarchy::Hierarchy, id::{self, Id}, scope::Scope, syntax::SyntaxNode};
+use crate::{
+    errors::Error,
+    hierarchy::Hierarchy,
+    id::{self, Id},
+    scope::Scope,
+    syntax::SyntaxNode,
+};
 
 /// Definition
 
@@ -11,5 +16,5 @@ pub struct Definition {
     pub scope: Hierarchy<Scope>,
     pub errors: Vec<Error>,
     pub conflicted: bool,
-    pub file: Id<id::File>
+    pub file: Id<id::File>,
 }

@@ -16,7 +16,7 @@ use crate::{
     parser::parse,
     r#abstract::{Program, TopLevelKind},
     relation::Relations,
-    span::Spanned,
+    span::{Point, Span, Spanned},
     storage::Storage,
     syntax::SyntaxNode,
 };
@@ -36,6 +36,8 @@ pub struct Env {
 
     pub uris: HashMap<PathBuf, id::Id<id::File>>,
     pub files: HashMap<id::Id<id::File>, PathBuf>,
+
+    pub open: HashSet<id::Id<id::File>>,
 }
 
 impl Env {
@@ -48,6 +50,7 @@ impl Env {
             files: HashMap::default(),
             event_sender,
             visited: Default::default(),
+            open: Default::default(),
         }
     }
 
@@ -66,12 +69,6 @@ impl Env {
     /// Parses an existing file.
     pub async fn parse_file(&mut self, id: Id<id::File>) -> Option<()> {
         let file = self.file_storage.get_mut(&id)?;
-
-        self.event_sender
-            .send(Event::Log(format!("Tech! {:?}", file.source)))
-            .await
-            .ok()?;
-
         let (new_ast, errors) = parse(&file.source);
 
         mem::swap(&mut file.old_tree, &mut file.new_tree);
@@ -94,7 +91,17 @@ impl Env {
             let end = edit.span.end.to_offset(&file.source);
 
             if end <= file.source.len() {
+                self.event_sender
+                    .send(Event::Log(format!("code? {:?}", file.source)))
+                    .await
+                    .ok()?;
+
                 file.source.replace_range(start..end, &edit.data);
+
+                self.event_sender
+                    .send(Event::Log(format!("code! {:?}", file.source)))
+                    .await
+                    .ok()?;
             } else {
                 self.event_sender
                     .send(Event::Log(format!("FAILED! {:?} {:?}", file.source, edits)))
@@ -102,25 +109,20 @@ impl Env {
                     .ok()?;
             }
         }
-
-        self.event_sender
-            .send(Event::Log(format!("out {:?} {:?}", file.source, edits)))
-            .await
-            .ok()?;
-
         Some(file)
     }
 
     /// Ensures a file is present and up to date.
     pub fn ensure_file(&mut self, path: PathBuf, source: String) -> Id<id::File> {
         let path = path.canonicalize().unwrap();
-        let id = self
-            .uris
-            .get(&path)
-            .cloned()
-            .unwrap_or_else(|| self.add_file(path));
-        self.update_file(id, source);
-        id
+
+        if let Some(id) = self.uris.get(&path).cloned() {
+            id
+        } else {
+            let id = self.add_file(path);
+            self.update_file(id, source);
+            id
+        }
     }
 
     /// Updates the source code of an existing file.
@@ -147,11 +149,6 @@ impl Env {
 
             visited.insert(current_id);
 
-            self.event_sender
-            .send(Event::Log(format!("cuuur {current_id}")))
-            .await
-            .ok()?;
-
             let (program, imports) = self.precompile(current_id).await?;
             let new_imports = self.process_imports(&program).await;
             self.update_file_imports(current_id, new_imports.clone(), program);
@@ -162,10 +159,6 @@ impl Env {
 
             for (id, _) in self.created.get_dependents(current_id) {
                 to_update.insert(id);
-                self.event_sender
-                    .send(Event::Log(format!("{current_id} --> {id}")))
-                    .await
-                    .ok()?;
             }
 
             stack.extend(changed.into_iter());
@@ -174,7 +167,7 @@ impl Env {
         let to_update = self.created.affected(to_update.into_iter());
 
         for file in to_update {
-            self.update_file_errors(file);
+            self.update_file_errors(file).await;
             self.event_sender.send(Event::Recompiled(file)).await.ok()?;
         }
 
@@ -258,13 +251,13 @@ impl Env {
         let mut affected_files = HashSet::new();
 
         for removed in old_imports.difference(new_imports) {
-            self.created.remove_edge(id, removed.clone());
-            affected_files.insert(removed.clone());
+            self.created.remove_edge(id, *removed);
+            affected_files.insert(*removed);
         }
 
         for added in new_imports.difference(old_imports) {
-            self.created.connect(id, added.clone());
-            affected_files.insert(added.clone());
+            self.created.connect(id, *added);
+            affected_files.insert(*added);
         }
 
         affected_files
@@ -283,7 +276,7 @@ impl Env {
     }
 
     /// Updates file errors and imports after compilation.
-    fn update_file_errors(&mut self, id: Id<id::File>) {
+    async fn update_file_errors(&mut self, id: Id<id::File>) {
         let file = self.file_storage.get_mut(&id).unwrap();
         let imps = file.imports.clone();
 
@@ -294,13 +287,12 @@ impl Env {
             let file = self.file_storage.get_mut(&id).unwrap();
             for name in &file.names {
                 tracker
-                    .defined
+                    .imported
                     .entry(name.data.clone())
                     .or_default()
                     .push(name.clone());
             }
         }
-
         let file = self.file_storage.get_mut(&id).unwrap();
         tracker.check_program(&file.ast);
 
@@ -310,6 +302,8 @@ impl Env {
             .flatten()
             .collect::<HashSet<_>>();
 
+        file.scopes = tracker.scopes.finish();
+
         for (_, instances) in tracker.unbound {
             for instance in instances {
                 file.errors.push(Error::new(
@@ -318,5 +312,34 @@ impl Env {
                 ));
             }
         }
+    }
+
+    /// Updates file errors and imports after compilation.
+    pub async fn available_names_in_point(
+        &mut self,
+        id: Id<id::File>,
+        point: Point,
+    ) -> HashSet<String> {
+        let file = self.file_storage.get_mut(&id).unwrap();
+        let imps = file.imports.clone();
+
+        let mut tracker = HashSet::<String>::new();
+        let mut scopes = Vec::new();
+
+        file.scopes
+            .accumulate(&Span::new(point.clone(), point), &mut scopes);
+        tracker.extend(file.names.clone().into_iter().map(|x| x.data));
+
+        for scope in scopes {
+            let res = scope.data.vars.keys().cloned().collect::<Vec<_>>();
+            tracker.extend(res)
+        }
+
+        for id in imps {
+            let file = self.file_storage.get_mut(&id).unwrap();
+            tracker.extend(file.names.clone().into_iter().map(|x| x.data))
+        }
+
+        tracker
     }
 }

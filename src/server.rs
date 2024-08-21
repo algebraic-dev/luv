@@ -25,7 +25,7 @@ pub struct BiMap {
 
 impl BiMap {
     pub fn insert(&mut self, f: id::Id<id::File>, t: Url) {
-        self.from.insert(t.clone(), f.clone());
+        self.from.insert(t.clone(), f);
         self.to.insert(f, t);
     }
 }
@@ -70,7 +70,7 @@ impl Backend {
             })
         }
 
-        return errs;
+        errs
     }
 
     /// Change all change events to text ranges.
@@ -97,7 +97,7 @@ impl Backend {
 
     pub async fn get_document_id(&self, uri: &Url) -> Option<Id<id::File>> {
         let docstore = self.docs.read().await;
-        docstore.from.get(&uri).copied()
+        docstore.from.get(uri).copied()
     }
 
     pub async fn publish_diagnostics(&self, uri: &Url, errs: Vec<Diagnostic>) {
@@ -109,10 +109,6 @@ impl Backend {
 
 impl Backend {
     pub async fn handle_recompile(&self, id: Id<id::File>) {
-        self.client
-            .log_message(MessageType::INFO, format!("id: {id}"))
-            .await;
-
         let mut manager = self.manager.write().await;
         let path = manager.files.get(&id).unwrap();
 
@@ -124,11 +120,6 @@ impl Backend {
         let errors = doc.errors.clone();
 
         let errs = self.transform_errors(&errors);
-
-        self.client
-            .log_message(MessageType::INFO, format!("errs: {}", errs.len()))
-            .await;
-
         self.publish_diagnostics(&uri, errs).await;
     }
 
@@ -147,6 +138,13 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::INCREMENTAL,
                 )),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: None,
+                    work_done_progress_options: Default::default(),
+                    all_commit_characters: None,
+                    completion_item: None,
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -172,22 +170,8 @@ impl LanguageServer for Backend {
         let path = PathBuf::from(uri.path()).canonicalize().unwrap();
         let id = manager.ensure_file(path.clone(), "".to_string());
 
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("Creating file {:?} - {:?}", path, id),
-            )
-            .await;
-
         let mut docstore = self.docs.write().await;
         docstore.insert(id, uri.clone());
-
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("Editing file!! {:?}", id),
-            )
-            .await;
 
         manager.update_file(id, doc);
         manager.compile(id).await;
@@ -197,17 +181,54 @@ impl LanguageServer for Backend {
 
         let errs = self.transform_errors(&errors);
 
+        manager.open.insert(id);
+
         self.publish_diagnostics(&uri, errs).await;
     }
 
-    async fn did_close(&self, _params: DidCloseTextDocumentParams) {
-        ()
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        let uri = params.text_document.uri;
+
+        let docstore = self.docs.write().await;
+
+        let mut manager = self.manager.write().await;
+        let id = docstore.from.get(&uri).unwrap();
+        manager.open.insert(*id);
+    }
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+        let point = Point::new(pos.line as usize, pos.character as usize);
+
+        let mut manager = self.manager.write().await;
+        let id = self.get_document_id(&uri).await.unwrap();
+        let mut completions = Vec::new();
+
+        for data in manager.available_names_in_point(id, point).await {
+            completions.push(CompletionItem {
+                label: data,
+                kind: Some(CompletionItemKind::FUNCTION),
+                ..Default::default()
+            })
+        }
+
+        if completions.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(CompletionResponse::Array(completions)))
+        }
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let changes = params.content_changes;
+
         let mut manager = self.manager.write().await;
+
+        self.client
+            .log_message(MessageType::INFO, format!("changes: {:?}", changes))
+            .await;
 
         let docstore = self.docs.read().await;
         let id = docstore.from.get(&uri).cloned().unwrap();
@@ -217,13 +238,6 @@ impl LanguageServer for Backend {
             let edits = self.changes_to_ranges(changes);
             manager.apply_edits(id, &edits).await;
         } else {
-            self.client
-            .log_message(
-                MessageType::INFO,
-                format!("Updating file {:?}", id),
-            )
-            .await;
-
             manager.update_file(id, changes.first().unwrap().text.clone());
         }
 

@@ -15,7 +15,7 @@ pub struct Data {
 }
 
 impl Data {
-    fn expected<'a>(&mut self, kind: SyntaxKind, list: &'a SyntaxNode) {
+    fn expected(&mut self, kind: SyntaxKind, list: &SyntaxNode) {
         self.error(
             list.span.clone(),
             format!("expected a {kind} got {}", list.kind),
@@ -36,7 +36,7 @@ impl Data {
         }
     }
 
-    fn identifier<'a>(&mut self, node: &'a SyntaxNode) -> Option<Text> {
+    fn identifier(&mut self, node: &SyntaxNode) -> Option<Text> {
         let span = node.span.clone();
 
         if let SyntaxKind::Identifier = node.kind {
@@ -93,7 +93,7 @@ impl Data {
         vec
     }
 
-    pub fn top_level_parse<'a>(&mut self, list: &'a SyntaxNode) -> TopLevel {
+    pub fn top_level_parse(&mut self, list: &SyntaxNode) -> TopLevel {
         let span = list.span.clone();
 
         if let Some(mut children) = self.list(list) {
@@ -130,8 +130,8 @@ impl Data {
         Some(vec)
     }
 
-    pub fn drain<'a>(&mut self, mut iter: impl Iterator<Item = &'a SyntaxNode>) {
-        while let Some(res) = iter.next() {
+    pub fn drain<'a>(&mut self, iter: impl Iterator<Item = &'a SyntaxNode>) {
+        for res in iter {
             self.error(res.span.clone(), "useless argument. remove it.".to_owned())
         }
     }
@@ -146,7 +146,7 @@ impl Data {
 
         let mut body = Vec::new();
 
-        while let Some(next) = iter.next() {
+        for next in iter {
             let expr = self.parse_expr(next);
             body.push(expr);
         }
@@ -166,11 +166,7 @@ impl Data {
         mut iter: impl Iterator<Item = &'a SyntaxNode>,
     ) -> TopLevel {
         let name = self.next_identifier(span.clone(), &mut iter);
-        let body = if let Some(node) = self.next(&mut iter, span.clone(), "expected value") {
-            Some(self.parse_expr(node))
-        } else {
-            None
-        };
+        let body = self.next(&mut iter, span.clone(), "expected value").map(|node| self.parse_expr(node));
         let body = if let Some((name, value)) = name.zip(body) {
             TopLevelKind::Def(Def {
                 name,
@@ -205,7 +201,7 @@ impl Data {
 
         let mut options = Vec::new();
 
-        while let Some(next) = iter.next() {
+        for next in iter.by_ref() {
             if let Some(mut option) = self.list(next) {
                 let key = self.next_identifier(span.clone(), &mut option);
                 let value = self.next_identifier(span.clone(), &mut option);
@@ -233,18 +229,18 @@ impl Data {
     pub fn parse_eval<'a>(
         &mut self,
         span: Span,
-        mut iter: impl Iterator<Item = &'a SyntaxNode>,
+        iter: impl Iterator<Item = &'a SyntaxNode>,
     ) -> TopLevel {
         let mut exprs = Vec::new();
 
-        while let Some(next) = iter.next() {
+        for next in iter {
             exprs.push(self.parse_expr(next));
         }
 
         TopLevel::new(TopLevelKind::Eval(Eval { expr: exprs }), span)
     }
 
-    pub fn parse_expr<'a>(&mut self, node: &'a SyntaxNode) -> Expr {
+    pub fn parse_expr(&mut self, node: &SyntaxNode) -> Expr {
         let span = node.span.clone();
 
         match node.kind {
@@ -260,7 +256,7 @@ impl Data {
         }
     }
 
-    fn parse_list_expr<'a>(&mut self, node: &'a SyntaxNode, span: Span) -> Expr {
+    fn parse_list_expr(&mut self, node: &SyntaxNode, span: Span) -> Expr {
         if let Some(mut children) = self.list(node) {
             if let Some(first) = children.next() {
                 if let Some(keyword) = self.identifier(first) {
@@ -276,12 +272,12 @@ impl Data {
         Expr::new(ExprKind::Error, span)
     }
 
-    fn parse_identifier_expr<'a>(&mut self, node: &'a SyntaxNode, span: Span) -> Expr {
+    fn parse_identifier_expr(&mut self, node: &SyntaxNode, span: Span) -> Expr {
         let id = self.identifier(node).unwrap();
         Expr::new(ExprKind::Identifier(id.clone()), span)
     }
 
-    fn parse_literal_expr<'a>(&mut self, node: &'a SyntaxNode, span: Span) -> Expr {
+    fn parse_literal_expr(&mut self, node: &SyntaxNode, span: Span) -> Expr {
         let token = node.first_token().unwrap();
         let literal_kind = match token.kind {
             SyntaxKind::String => LiteralKind::String,
@@ -356,11 +352,11 @@ impl Data {
         &mut self,
         callee: Text,
         span: Span,
-        mut args: impl Iterator<Item = &'a SyntaxNode>,
+        args: impl Iterator<Item = &'a SyntaxNode>,
     ) -> Expr {
         let mut arguments = Vec::new();
 
-        while let Some(arg) = args.next() {
+        for arg in args {
             arguments.push(self.parse_expr(arg));
         }
 
@@ -380,7 +376,7 @@ impl Data {
         let parameters = self.parse_params(span.clone(), &mut children);
 
         let mut body = Vec::new();
-        while let Some(next) = children.next() {
+        for next in children {
             body.push(self.parse_expr(next));
         }
 
@@ -412,6 +408,7 @@ pub struct ScopeTracker {
     pub scopes: HierarchyBuilder<Scope>,
     pub unbound: HashMap<String, Vec<Text>>,
     pub defined: HashMap<String, Vec<Text>>,
+    pub imported: HashMap<String, Vec<Text>>,
 }
 
 impl ScopeTracker {
@@ -420,6 +417,7 @@ impl ScopeTracker {
             scopes: HierarchyBuilder::new(span),
             unbound: Default::default(),
             defined: Default::default(),
+            imported: Default::default(),
         }
     }
 
@@ -446,7 +444,11 @@ impl ScopeTracker {
         }
 
         if let Some(span) = self.defined.get(&name) {
-            return Some(span.first().unwrap().span.clone())
+            return Some(span.first().unwrap().span.clone());
+        }
+
+        if let Some(span) = self.imported.get(&name) {
+            return Some(span.first().unwrap().span.clone());
         }
 
         None

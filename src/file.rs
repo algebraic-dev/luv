@@ -4,8 +4,10 @@ use std::collections::HashSet;
 
 use crate::{
     errors::Error,
+    hierarchy::Hierarchy,
     id::{self, Id},
     r#abstract::{Program, Text},
+    scope::Scope,
     span::Span,
     syntax::SyntaxNode,
 };
@@ -17,6 +19,7 @@ pub struct File {
     pub imports: HashSet<Id<id::File>>,
     pub names: HashSet<Text>,
     pub ast: Program,
+    pub scopes: Hierarchy<Scope>,
 }
 
 impl File {
@@ -32,6 +35,7 @@ impl File {
                 vec: vec![],
                 span: Span::empty(),
             },
+            scopes: Hierarchy::new(Span::empty(), Scope::default()),
         }
     }
 }

@@ -28,7 +28,7 @@ impl Point {
             self.line += 1;
             self.column = 0;
         } else {
-            self.column += 1;
+            self.column += character.len_utf16();
         }
     }
 
@@ -51,13 +51,17 @@ impl Point {
     /// Converts the [Point] into a byte offset within the provided document string.
     pub fn to_offset(&self, doc: &str) -> usize {
         let mut offset = 0;
-        for (line_num, line) in doc.lines().enumerate() {
-            if line_num == self.line {
-                offset += self.column;
+        let mut point = Point::new(0, 0);
+
+        for c in doc.chars() {
+            if point == *self {
                 break;
             }
-            offset += line.len() + 1; // +1 for newline character
+
+            offset += c.len_utf8();
+            point.advance(c);
         }
+
         offset
     }
 

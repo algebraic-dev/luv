@@ -358,8 +358,8 @@ pub enum Change<'a> {
 impl<'a> PrettyPrint for Change<'a> {
     fn to_tree(&self) -> Tree {
         match self {
-            Change::Added(node) => Tree::label("Added").add(node),
-            Change::Removed(node) => Tree::label("Removed").add(node),
+            Change::Added(node) => Tree::label("Added").add_child(node),
+            Change::Removed(node) => Tree::label("Removed").add_child(node),
         }
     }
 }
