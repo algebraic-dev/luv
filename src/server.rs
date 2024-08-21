@@ -14,7 +14,9 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::env::{self, Env};
 use crate::errors::Error;
+use crate::find::Found;
 use crate::id::{self, Id};
+use crate::r#abstract::TopLevelKind;
 use crate::span::{Edit, Point, Span};
 
 #[derive(Default)]
@@ -145,6 +147,12 @@ impl LanguageServer for Backend {
                     all_commit_characters: None,
                     completion_item: None,
                 }),
+                definition_provider: Some(tower_lsp::lsp_types::OneOf::Right(DefinitionOptions {
+                    work_done_progress_options: tower_lsp::lsp_types::WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                })),
+                folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
                 ..Default::default()
             },
             ..Default::default()
@@ -159,6 +167,33 @@ impl LanguageServer for Backend {
 
     async fn shutdown(&self) -> Result<()> {
         Ok(())
+    }
+
+    async fn folding_range(&self, params: FoldingRangeParams) -> Result<Option<Vec<FoldingRange>>> {
+        let uri = params.text_document.uri;
+
+        let manager = self.manager.read().await;
+        let id = self.get_document_id(&uri).await.unwrap();
+        let doc = manager.file_storage.get(&id).unwrap();
+
+        let mut folding = Vec::new();
+
+        for ast in &doc.ast.vec {
+            match ast.data {
+                TopLevelKind::Defn(_) | TopLevelKind::Def(_) | TopLevelKind::Eval(_) => folding
+                    .push(FoldingRange {
+                        start_line: ast.span.start.line as u32,
+                        start_character: Some(ast.span.start.column as u32),
+                        end_line: ast.span.end.line as u32,
+                        end_character: Some(ast.span.end.column as u32),
+                        kind: None,
+                        collapsed_text: None,
+                    }),
+                _ => (),
+            }
+        }
+
+        Ok(Some(folding))
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -202,15 +237,27 @@ impl LanguageServer for Backend {
         let point = Point::new(pos.line as usize, pos.character as usize);
 
         let mut manager = self.manager.write().await;
-        let id = self.get_document_id(&uri).await.unwrap();
         let mut completions = Vec::new();
+        let id = self.get_document_id(&uri).await.unwrap();
+        let doc = manager.file_storage.get(&id).unwrap();
 
-        for data in manager.available_names_in_point(id, point).await {
-            completions.push(CompletionItem {
-                label: data,
-                kind: Some(CompletionItemKind::FUNCTION),
-                ..Default::default()
-            })
+        let mut vec = HashSet::new();
+        doc.ast.find(&point, &mut vec);
+
+        let find_map = vec.get(&Found::Expr);
+
+        self.client
+            .log_message(MessageType::INFO, format!("changes: {:?}", vec))
+            .await;
+
+        if find_map.is_some() {
+            for data in manager.available_names_in_point(id, point).await {
+                completions.push(CompletionItem {
+                    label: data,
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    ..Default::default()
+                })
+            }
         }
 
         if completions.is_empty() {
@@ -225,10 +272,6 @@ impl LanguageServer for Backend {
         let changes = params.content_changes;
 
         let mut manager = self.manager.write().await;
-
-        self.client
-            .log_message(MessageType::INFO, format!("changes: {:?}", changes))
-            .await;
 
         let docstore = self.docs.read().await;
         let id = docstore.from.get(&uri).cloned().unwrap();
@@ -250,5 +293,47 @@ impl LanguageServer for Backend {
         let errs = self.transform_errors(&errors);
 
         self.publish_diagnostics(&uri, errs).await;
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let p = params.text_document_position_params.position;
+        let point = Point::new(p.line as usize, p.character as usize);
+
+        let docstore = self.docs.read().await;
+        let id = docstore.from.get(&uri).cloned().unwrap();
+
+        let manager = self.manager.read().await;
+        let doc = manager.file_storage.get(&id).unwrap();
+
+        let mut vec = HashSet::new();
+        doc.ast.find(&point, &mut vec);
+
+        let find_map = vec
+            .iter()
+            .find_map(|x| if let Found::Id(x) = x { Some(x) } else { None });
+
+        if let Some(name) = find_map {
+            if let Some(data) = doc.scopes.find(&name.data, &name.span) {
+                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                    uri,
+                    range: Range {
+                        start: Position {
+                            line: data.start.line as u32,
+                            character: data.start.column as u32,
+                        },
+                        end: Position {
+                            line: data.end.line as u32,
+                            character: data.end.column as u32,
+                        },
+                    },
+                })));
+            }
+        }
+
+        Ok(None)
     }
 }

@@ -1,17 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::{HashMap, HashSet}, mem};
 
 use crate::{
-    errors::Error,
-    hierarchy::HierarchyBuilder,
-    r#abstract::*,
-    scope::Scope,
-    span::{Span, Spanned},
-    syntax::{SyntaxKind, SyntaxNode},
+    r#abstract::*, errors::Error, hierarchy::HierarchyBuilder, id, scope::Scope, span::{Span, Spanned}, syntax::{SyntaxKind, SyntaxNode}
 };
 
 #[derive(Default)]
 pub struct Data {
     pub errors: Vec<Error>,
+}
+
+pub enum Res {
+    Some(id::Id<id::File>, Span),
+    Local(Span),
+    None,
 }
 
 impl Data {
@@ -102,13 +103,14 @@ impl Data {
                     "defn" => return self.parse_defn(span.clone(), children),
                     "def" => return self.parse_def(span.clone(), children),
                     "require" => return self.parse_require(span.clone(), children),
+                    "external" => return self.parse_external(span.clone(), children),
                     "eval" => return self.parse_eval(span.clone(), children),
                     _ => self.error(span.clone(), "invalid top level syntax".to_owned()),
                 }
             }
         }
 
-        Spanned::new(TopLevelKind::Error, span)
+        TopLevel::new(TopLevelKind::Error, span)
     }
 
     pub fn parse_params<'a>(
@@ -160,13 +162,48 @@ impl Data {
         TopLevel::new(defn, span)
     }
 
+    pub fn parse_external<'a>(
+        &mut self,
+        span: Span,
+        mut iter: impl Iterator<Item = &'a SyntaxNode>,
+    ) -> TopLevel {
+        let name = self.next_identifier(span.clone(), &mut iter);
+        let params = self.parse_params(span.clone(), &mut iter);
+
+        let body = self.next(
+            &mut iter,
+            span.clone(),
+            "expected a string that describes the binding.",
+        );
+
+        let body = body.and_then(|node| match node.kind {
+            SyntaxKind::String => {
+                let token = node.first_token().unwrap();
+                Some(Text::new(token.text.clone(), token.span.clone()))
+            }
+            _ => {
+                self.error(node.span.clone(), "expected a path as a string.".to_owned());
+                None
+            }
+        });
+
+        let defn = if let Some(((name, params), body)) = name.zip(params).zip(body) {
+            TopLevelKind::External(External { name, params, body })
+        } else {
+            TopLevelKind::Error
+        };
+
+        TopLevel::new(defn, span)
+    }
     pub fn parse_def<'a>(
         &mut self,
         span: Span,
         mut iter: impl Iterator<Item = &'a SyntaxNode>,
     ) -> TopLevel {
         let name = self.next_identifier(span.clone(), &mut iter);
-        let body = self.next(&mut iter, span.clone(), "expected value").map(|node| self.parse_expr(node));
+        let body = self
+            .next(&mut iter, span.clone(), "expected value")
+            .map(|node| self.parse_expr(node));
         let body = if let Some((name, value)) = name.zip(body) {
             TopLevelKind::Def(Def {
                 name,
@@ -361,7 +398,8 @@ impl Data {
         }
 
         let call_expr = CallExpr {
-            callee: Box::new(Expr::new(ExprKind::Identifier(callee.clone()), callee.span)),
+            callee,
+            local: None,
             arguments,
         };
 
@@ -406,18 +444,24 @@ pub fn to_abstract(syntax: &SyntaxNode) -> (Data, Program) {
 
 pub struct ScopeTracker {
     pub scopes: HierarchyBuilder<Scope>,
-    pub unbound: HashMap<String, Vec<Text>>,
+    pub unbound: HashMap<String, Vec<(Span, Text)>>,
     pub defined: HashMap<String, Vec<Text>>,
-    pub imported: HashMap<String, Vec<Text>>,
+    pub imported: HashMap<String, Vec<(id::Id<id::File>, Text)>>,
+    pub current: Span,
+    pub current_file: id::Id<id::File>,
+    pub collected: HashSet<(id::Id<id::File>, String)>
 }
 
 impl ScopeTracker {
-    pub fn new(span: Span) -> Self {
+    pub fn new(span: Span, current_file: id::Id<id::File>) -> Self {
         Self {
             scopes: HierarchyBuilder::new(span),
             unbound: Default::default(),
             defined: Default::default(),
+            collected: Default::default(),
             imported: Default::default(),
+            current: Span::empty(),
+            current_file
         }
     }
 
@@ -434,44 +478,65 @@ impl ScopeTracker {
         scope.add(name, span)
     }
 
-    fn find(&mut self, span: Span, name: String) -> Option<Span> {
+    fn find(&mut self, span: Span, name: String) -> Res {
         let scopes = self.scopes.accumulate(span.clone());
 
         for site in scopes {
             if let Some(span) = site.find(&name, &span) {
-                return Some(span);
+                return Res::Local(span);
             }
         }
 
         if let Some(span) = self.defined.get(&name) {
-            return Some(span.first().unwrap().span.clone());
+            return Res::Some(self.current_file, span.last().unwrap().span.clone());
         }
 
         if let Some(span) = self.imported.get(&name) {
-            return Some(span.first().unwrap().span.clone());
+            let val = span.last().unwrap().clone();
+            return Res::Some(val.0, val.1.span);
         }
 
-        None
+        Res::None
     }
 
-    fn check_expr(&mut self, expr: &Expr) {
-        match &expr.data {
+    fn check_expr(&mut self, expr: &mut Expr) {
+        match &mut expr.data {
             ExprKind::Let(let_expr) => {
-                self.check_expr(&let_expr.body);
+                self.check_expr(&mut let_expr.body);
                 self.add(let_expr.name.data.clone(), expr.span.clone());
             }
             ExprKind::If(if_expr) => {
-                self.check_expr(&if_expr.condition);
+                self.check_expr(&mut if_expr.condition);
                 self.open(if_expr.true_branch.span.clone());
-                self.check_expr(&if_expr.true_branch);
+                self.check_expr(&mut if_expr.true_branch);
                 self.close();
                 self.open(if_expr.false_branch.span.clone());
-                self.check_expr(&if_expr.false_branch);
+                self.check_expr(&mut if_expr.false_branch);
                 self.close();
             }
             ExprKind::Call(call_expr) => {
-                self.check_expr(&call_expr.callee);
-                for arg in &call_expr.arguments {
+                let callee = &call_expr.callee;
+
+                let find = &self.find(callee.span.clone(), callee.data.clone());
+
+                match find {
+                    Res::Some(id, _) => {
+                        call_expr.local = Some(id.clone());
+                        self.collected.insert((id.clone(), callee.data.clone()));
+                    }
+                    Res::Local(_) => {
+                        self.collected.insert((self.current_file.clone(), callee.data.clone()));
+                        call_expr.local = None;
+                    }
+                    Res::None => {
+                        self.unbound
+                        .entry(callee.data.clone())
+                        .or_default()
+                        .push((self.current.clone(), callee.clone()));
+                    }
+                }
+
+                for arg in &mut call_expr.arguments {
                     self.check_expr(arg);
                 }
             }
@@ -480,59 +545,80 @@ impl ScopeTracker {
                 for param in &lambda_expr.parameters {
                     self.add(param.clone(), expr.span.clone());
                 }
-                for body_expr in &lambda_expr.body {
+                for body_expr in &mut lambda_expr.body {
                     self.check_expr(body_expr);
                 }
                 self.close();
             }
             ExprKind::Identifier(identifier) => {
-                if self
-                    .find(identifier.span.clone(), identifier.data.clone())
-                    .is_none()
-                {
-                    self.unbound
+                let find = self.find(identifier.span.clone(), identifier.data.clone());
+
+
+                match find {
+                    Res::Some(id, _) => {
+                        self.collected.insert((id.clone(), identifier.data.clone()));
+                        expr.data = ExprKind::Reference(id, identifier.clone());
+                    }
+                    Res::Local(_) => {
+                        self.collected.insert((self.current_file.clone(), identifier.data.clone()));
+                        expr.data = ExprKind::Local(identifier.clone())
+                    }
+                    Res::None => {
+                        self.unbound
                         .entry(identifier.data.clone())
                         .or_default()
-                        .push(identifier.clone());
+                        .push((self.current.clone(), identifier.clone()));
+                    }
                 }
             }
             _ => {}
         }
     }
 
-    pub fn check_program(&mut self, program: &Program) {
-        for top_level in &program.vec {
+    pub fn check_program(&mut self, program: &mut Program) {
+        for top_level in &mut program.vec {
             self.check_top_level(top_level);
         }
     }
 
-    fn check_top_level(&mut self, top_level: &TopLevel) {
-        match &top_level.data {
+    fn check_top_level(&mut self, top_level: &mut TopLevel) {
+        self.collected = Default::default();
+
+        match &mut top_level.data {
             TopLevelKind::Defn(defn) => {
+                self.current = defn.name.span.clone();
+
                 self.open(top_level.span.clone());
-                for param in &defn.params {
+                for param in &mut defn.params {
                     self.add(param.data.clone(), param.span.clone());
                 }
-                for body_expr in &defn.body {
+                for body_expr in &mut defn.body {
                     self.check_expr(body_expr);
                 }
+
                 self.close();
             }
             TopLevelKind::Def(def) => {
+                self.current = def.name.span.clone();
+
                 self.open(top_level.span.clone());
-                self.check_expr(&def.value);
+                self.check_expr(&mut def.value);
                 self.close();
             }
             TopLevelKind::Eval(eval) => {
-                for expr in &eval.expr {
+                for expr in &mut eval.expr {
                     self.check_expr(expr);
                 }
             }
-            _ => {}
+            TopLevelKind::External(_) => (),
+            TopLevelKind::Require(_) => (),
+            TopLevelKind::Error => (),
         }
+
+        top_level.refs = mem::take(&mut self.collected)
     }
 
-    fn register_toplevel(&mut self, top_level: &TopLevel) {
+    fn register_toplevel(&mut self, top_level: &mut TopLevel) {
         match &top_level.data {
             TopLevelKind::Defn(defn) => {
                 self.defined
@@ -554,19 +640,26 @@ impl ScopeTracker {
                         .push(rename.clone());
                 }
             }
-            _ => {}
+            TopLevelKind::External(ext) => {
+                self.defined
+                    .entry(ext.name.data.clone())
+                    .or_default()
+                    .push(ext.name.clone());
+            }
+            TopLevelKind::Eval(_) => (),
+            TopLevelKind::Error => (),
         }
     }
 
-    pub fn register_program(&mut self, program: &Program) {
-        for tl in &program.vec {
+    pub fn register_program(&mut self, program: &mut Program) {
+        for tl in &mut program.vec {
             self.register_toplevel(tl)
         }
     }
 }
 
-pub fn get_scopes(program: &Program) -> ScopeTracker {
-    let mut tracker = ScopeTracker::new(program.span.clone());
+pub fn get_scopes(program: &mut Program, current_file: id::Id<id::File>) -> ScopeTracker {
+    let mut tracker = ScopeTracker::new(program.span.clone(), current_file);
     tracker.register_program(program);
     tracker.check_program(program);
     tracker

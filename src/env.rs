@@ -90,24 +90,7 @@ impl Env {
             let start = edit.span.start.to_offset(&file.source);
             let end = edit.span.end.to_offset(&file.source);
 
-            if end <= file.source.len() {
-                self.event_sender
-                    .send(Event::Log(format!("code? {:?}", file.source)))
-                    .await
-                    .ok()?;
-
-                file.source.replace_range(start..end, &edit.data);
-
-                self.event_sender
-                    .send(Event::Log(format!("code! {:?}", file.source)))
-                    .await
-                    .ok()?;
-            } else {
-                self.event_sender
-                    .send(Event::Log(format!("FAILED! {:?} {:?}", file.source, edits)))
-                    .await
-                    .ok()?;
-            }
+            file.source.replace_range(start..end, &edit.data);
         }
         Some(file)
     }
@@ -152,7 +135,6 @@ impl Env {
             let (program, imports) = self.precompile(current_id).await?;
             let new_imports = self.process_imports(&program).await;
             self.update_file_imports(current_id, new_imports.clone(), program);
-
             let changed = self.update_relations(current_id, &imports, &new_imports);
 
             to_update.insert(current_id);
@@ -280,8 +262,10 @@ impl Env {
         let file = self.file_storage.get_mut(&id).unwrap();
         let imps = file.imports.clone();
 
-        let mut tracker = ScopeTracker::new(file.ast.span.clone());
-        tracker.register_program(&file.ast);
+        let mut errored_defs = HashSet::new();
+
+        let mut tracker = ScopeTracker::new(file.ast.span.clone(), id);
+        tracker.register_program(&mut file.ast);
 
         for id in imps {
             let file = self.file_storage.get_mut(&id).unwrap();
@@ -290,11 +274,31 @@ impl Env {
                     .imported
                     .entry(name.data.clone())
                     .or_default()
-                    .push(name.clone());
+                    .push((id, name.clone()));
             }
         }
+
         let file = self.file_storage.get_mut(&id).unwrap();
-        tracker.check_program(&file.ast);
+
+        for (_, occs) in &tracker.defined {
+            if occs.len() > 1 {
+                for occ in occs {
+                    errored_defs.insert(occ.span.clone());
+                    file.errors
+                        .push(Error::new("duplicated function.", occ.span.clone()));
+                }
+            } else {
+                let name = &occs[0];
+                errored_defs.insert(name.span.clone());
+                if tracker.imported.get(&occs[0].data).is_some() {
+                    file.errors
+                        .push(Error::new("duplicated function.", name.span.clone()));
+                }
+            }
+        }
+
+        let file = self.file_storage.get_mut(&id).unwrap();
+        tracker.check_program(&mut file.ast);
 
         file.names = tracker
             .defined
@@ -305,13 +309,16 @@ impl Env {
         file.scopes = tracker.scopes.finish();
 
         for (_, instances) in tracker.unbound {
-            for instance in instances {
+            for (on, instance) in instances {
+                errored_defs.insert(on.clone());
                 file.errors.push(Error::new(
                     format!("cannot find variable `{}`.", instance.data),
                     instance.span,
                 ));
             }
         }
+
+        file.errored_tl = errored_defs;
     }
 
     /// Updates file errors and imports after compilation.
@@ -326,8 +333,9 @@ impl Env {
         let mut tracker = HashSet::<String>::new();
         let mut scopes = Vec::new();
 
-        file.scopes
-            .accumulate(&Span::new(point.clone(), point), &mut scopes);
+        let span = Span::new(point.clone(), point);
+
+        file.scopes.accumulate(&span, &mut scopes);
         tracker.extend(file.names.clone().into_iter().map(|x| x.data));
 
         for scope in scopes {

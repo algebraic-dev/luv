@@ -1,6 +1,0 @@
-(require "./example/list.fly")
-
-(defn 🔥 (x y) x)
-
-(defn atae/beta (x y 🔥)
-    x 🔥 z y "🔥" efff)

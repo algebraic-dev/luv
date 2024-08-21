@@ -1,6 +1,5 @@
 pub mod r#abstract;
 pub mod analyze;
-pub mod definition;
 pub mod env;
 pub mod errors;
 pub mod file;
@@ -15,3 +14,6 @@ pub mod server;
 pub mod span;
 pub mod storage;
 pub mod syntax;
+pub mod find;
+pub mod compiler;
+pub mod ssa;

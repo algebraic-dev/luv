@@ -2,14 +2,10 @@
 
 use std::collections::HashSet;
 
+use im_rc::HashMap;
+
 use crate::{
-    errors::Error,
-    hierarchy::Hierarchy,
-    id::{self, Id},
-    r#abstract::{Program, Text},
-    scope::Scope,
-    span::Span,
-    syntax::SyntaxNode,
+    r#abstract::{Program, Text}, errors::Error, hierarchy::Hierarchy, id::{self, Id}, scope::Scope, span::Span, ssa::Function, syntax::SyntaxNode
 };
 pub struct File {
     pub old_tree: SyntaxNode,
@@ -20,6 +16,9 @@ pub struct File {
     pub names: HashSet<Text>,
     pub ast: Program,
     pub scopes: Hierarchy<Scope>,
+    pub errored_tl: HashSet<Span>,
+    pub need_recompile: bool,
+    pub ssa: HashMap<(Id<id::File>, String), Function>
 }
 
 impl File {
@@ -35,7 +34,10 @@ impl File {
                 vec: vec![],
                 span: Span::empty(),
             },
+            errored_tl: HashSet::new(),
             scopes: Hierarchy::new(Span::empty(), Scope::default()),
+            need_recompile: true,
+            ssa: Default::default()
         }
     }
 }
