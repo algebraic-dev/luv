@@ -1,3 +1,0 @@
-(require "./example/be.love")
-
-(defn ceto (x y) x y z)

@@ -10,12 +10,16 @@ pub enum Typ {
 
 impl fmt::Display for Typ {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Typ::Integer => "Integer",
-            Typ::Float => "Float",
-            Typ::String => "String",
-            Typ::Array => "Array",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Typ::Integer => "Integer",
+                Typ::Float => "Float",
+                Typ::String => "String",
+                Typ::Array => "Array",
+            }
+        )
     }
 }
 
@@ -62,20 +66,40 @@ pub enum Instruction {
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Instruction::Add { dest, lhs, rhs } => write!(f, "Add(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::Subtract { dest, lhs, rhs } => write!(f, "Subtract(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::Multiply { dest, lhs, rhs } => write!(f, "Multiply(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::Divide { dest, lhs, rhs } => write!(f, "Divide(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::And { dest, lhs, rhs } => write!(f, "And(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::Or { dest, lhs, rhs } => write!(f, "Or(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::Equal { dest, lhs, rhs } => write!(f, "Equal(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
-            Instruction::NotEqual { dest, lhs, rhs } => write!(f, "NotEqual(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs),
+            Instruction::Add { dest, lhs, rhs } => {
+                write!(f, "Add(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::Subtract { dest, lhs, rhs } => {
+                write!(f, "Subtract(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::Multiply { dest, lhs, rhs } => {
+                write!(f, "Multiply(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::Divide { dest, lhs, rhs } => {
+                write!(f, "Divide(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::And { dest, lhs, rhs } => {
+                write!(f, "And(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::Or { dest, lhs, rhs } => {
+                write!(f, "Or(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::Equal { dest, lhs, rhs } => {
+                write!(f, "Equal(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
+            Instruction::NotEqual { dest, lhs, rhs } => {
+                write!(f, "NotEqual(dest: {}, lhs: {}, rhs: {})", dest, lhs, rhs)
+            }
             Instruction::Not { dest, lhs } => write!(f, "Not(dest: {}, lhs: {})", dest, lhs),
             Instruction::Incref { dest } => write!(f, "Incref(dest: {})", dest),
             Instruction::Decref { dest } => write!(f, "Decref(dest: {})", dest),
-            Instruction::Check { dest, src, typ } => write!(f, "Check(dest: {}, src: {}, typ: {})", dest, src, typ),
+            Instruction::Check { dest, src, typ } => {
+                write!(f, "Check(dest: {}, src: {}, typ: {})", dest, src, typ)
+            }
             Instruction::Call { name, args } => write!(f, "Call(name: {}, args: {})", name, args),
-            Instruction::Const { dest, value } => write!(f, "Const(dest: {}, value: {})", dest, value),
+            Instruction::Const { dest, value } => {
+                write!(f, "Const(dest: {}, value: {})", dest, value)
+            }
         }
     }
 }
@@ -97,8 +121,15 @@ impl fmt::Display for Terminator {
             Terminator::Return(None) => write!(f, "Return()"),
             Terminator::Return(Some(value)) => write!(f, "Return(value: {})", value),
             Terminator::Jump(block) => write!(f, "Jump(block: {})", block),
-            Terminator::ConditionalJump { condition, then_block, else_block } => 
-                write!(f, "ConditionalJump(condition: {}, then_block: {}, else_block: {})", condition, then_block, else_block),
+            Terminator::ConditionalJump {
+                condition,
+                then_block,
+                else_block,
+            } => write!(
+                f,
+                "ConditionalJump(condition: {}, then_block: {}, else_block: {})",
+                condition, then_block, else_block
+            ),
         }
     }
 }
@@ -116,7 +147,12 @@ impl fmt::Display for BasicBlock {
             Some(t) => t.to_string(),
             None => "None".to_string(),
         };
-        write!(f, "BasicBlock(instructions: [{}], terminator: {})", instructions.join(", "), terminator)
+        write!(
+            f,
+            "BasicBlock(instructions: [{}], terminator: {})",
+            instructions.join(", "),
+            terminator
+        )
     }
 }
 
@@ -131,10 +167,15 @@ impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let blocks: Vec<String> = self.blocks.iter().map(|b| b.to_string()).collect();
         let constants: Vec<String> = self.constants.iter().map(|c| c.to_string()).collect();
-        write!(f, "Function(arguments: {}, blocks: [{}], constants: [{}])", self.arguments, blocks.join(", "), constants.join(", "))
+        write!(
+            f,
+            "Function(arguments: {}, blocks: [{}], constants: [{}])",
+            self.arguments,
+            blocks.join(", "),
+            constants.join(", ")
+        )
     }
 }
-
 
 /// Builder for creating functions, blocks, and instructions.
 pub struct FunctionBuilder {

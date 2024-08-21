@@ -2,11 +2,10 @@
 //! manipulation with an LSP.
 
 use core::fmt;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::slice::Iter;
 
-use crate::id;
 use crate::prettytree::{PrettyPrint, Tree};
 use crate::span::{Span, Spanned};
 
@@ -56,10 +55,6 @@ impl fmt::Display for SyntaxKind {
 /// A token is a piece of text with the classification.
 pub type Token = (SyntaxKind, Spanned<String>);
 
-/// The identifier of a [SyntaxNode], used for lightweight comparison of nodes.
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Id(Span, u64, id::Id<id::File>);
-
 /// The syntax node express an artificial boundary in the tokens creating a syntatic meaning on them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntaxNode {
@@ -98,19 +93,6 @@ impl SyntaxNode {
             span: Span::empty(),
             hash: 0,
         }
-    }
-
-    /// Converts the node to a map of its nodes.
-    pub fn to_map(&self, file: id::Id<id::File>) -> HashMap<Id, SyntaxNode> {
-        self.clone()
-            .get_nodes()
-            .map(|x| (x.get_id(file), x))
-            .collect()
-    }
-
-    /// Returns the unique identifier for the node.
-    pub fn get_id(&self, file: id::Id<id::File>) -> Id {
-        Id(self.span.clone(), self.hash, file)
     }
 
     /// Returns the kind of the syntax node.

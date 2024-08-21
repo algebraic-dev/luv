@@ -1,9 +1,0 @@
-(require "./example/list.fly")
-
-(external ata (x y z) "binding")
-
-(defn atata (x y)
-    3
-    1)
-
-(defn beta (x s y) 1)
